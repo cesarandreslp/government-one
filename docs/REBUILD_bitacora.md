@@ -42,5 +42,18 @@
 - Contratista = identidad externa; supervisor = funcionario; interventor = tercero externo contratado.
 - BD por tenant, definitiva. Provisioning y migraciones automáticas desde el día cero.
 
-> **Estado:** fundación de dominio cerrada. Pendiente: cerrar plano de control → scaffolding Next.js →
-> módulo base.
+## Infraestructura provisionada (2026-07-12, vía Vercel CLI)
+
+- ✅ **Repo GitHub:** `github.com/cesarandreslp/government-one` (rama `main`).
+- ✅ **Proyecto Vercel:** `cesar-lozanos-projects/government-one` (`prj_uzWN…`), creado + linkeado por CLI.
+- ✅ **Neon (meta-DB) provisionada vía Vercel** (`vercel integration add neon`): recurso `neon-blue-pillow`,
+  conectado al proyecto; env vars en `.env.local` (gitignored). Claves útiles: `POSTGRES_PRISMA_URL`
+  (pooled, runtime), `POSTGRES_URL_NON_POOLING` / `DATABASE_URL_UNPOOLED` (directo, migraciones),
+  `NEON_PROJECT_ID`. Esta Neon = **meta-DB** del control plane; los tenant-DB se provisionan luego con el
+  orquestador (Neon API).
+- ⚠️ **Pendiente (usuario):** autorizar la app de Vercel en GitHub para el repo → habilita auto-deploy on
+  push. Mientras, deploy por CLI (`vercel deploy`).
+
+> **Estado:** scaffolding + infra listos. **Siguiente:** empezar la fundación por el **plano de control**
+> — Prisma apuntando a la meta-DB Neon + schema `Tenant` (con `schemaVersion` + estado de provisioning) +
+> ruteo de tenant + orquestador de migraciones. Verificar conexión viva contra Neon.
