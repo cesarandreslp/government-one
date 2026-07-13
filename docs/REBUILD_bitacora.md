@@ -92,18 +92,37 @@
   en Vercel (API de dominios) — recordatorio del usuario: los tenants configuran su propio dominio.
 - 🗑️ **Dato:** existe un tenant demo real en Neon (`young-silence-83309176`) — borrable con `deleteNeonProject`.
 
+## Progreso — Brick 3: schema del tenant (fundación de dominio v1) + ruteo (2026-07-13)
+
+- ✅ **Segunda schema de Prisma** `prisma/tenant/schema.prisma` (aparte de la meta-DB): núcleo de la
+  fundación de dominio → `Dependencia` (árbol, `tipo`, `esServicioCompartido`), `Cargo` (bundle `grants`
+  Json, `esJefatura`), `Usuario` (rol identidad: SUPER_ADMIN/ADMIN/USER/CONTRATISTA), `VinculacionCargo`
+  (TITULAR/ENCARGADO/PROVISIONAL + `actoAdmin` + desde/hasta), `Ausencia`. Genera cliente aparte en
+  `src/generated/tenant` (gitignored; `postinstall` genera AMBOS clientes en Vercel).
+- ✅ **`prisma/tenant/provision-schema.sql`** (generado con `prisma migrate diff --from-empty --to-schema …
+  --script`) — el DDL del tenant, versionable, que se aplica a cada BD de tenant.
+- ✅ **`src/lib/provisioning/schema-apply.ts`** (`applyTenantSchema`): ejecuta ese SQL contra la BD del
+  tenant (pg + connString directa). Cableado en `provisionTenant` → tras aplicar, estado `ACTIVO`, `schemaVersion=1`.
+- ✅ **`src/lib/tenant-db.ts`** — RUTEO: `resolveTenantByHost` (subdominio gestionado **O** `dominioPersonalizado`)
+  + `getTenantPrisma(host)` (descifra connString → cliente Prisma del tenant). (Caché por-tenant: pendiente para escala.)
+- ✅ **VERIFICADO EN VIVO** (`scripts/test-routing.ts`): schema aplicado a la BD del tenant demo → ACTIVO;
+  `getTenantPrisma("demo.ossgovernmentone.lat")` **ruteó y ESCRIBIÓ** en la BD propia del tenant (creó
+  "Secretaría de Planeación"; dependencias 0→1). → multi-tenant runtime completo, punta a punta.
+- ✅ **Commit `1b15ef9` + push + deploy `READY`** (build genera meta + tenant clients en Vercel).
+
 ## ⏭️ Recomendación para el siguiente tramo
 
-1. **Ruteo de tenant** (host → tenant → cliente Prisma de su BD), resolviendo subdominio gestionado **y
-   dominio propio** (`dominioPersonalizado`), con caché host→tenant.
-2. **Fundación de DOMINIO = schema del tenant** (Dependencia + Cargo + VinculacionCargo + Usuario + …) →
-   habilita el paso "aplicar schema" del provisioning (marcar ACTIVO) y el **orquestador de migraciones**.
-3. **Superadmin: CRUD de tenants + botón "provisionar"** (usa `provisionTenant`) — UI verificable.
-4. **Orquestador de migraciones** (versionadas + fan-out sobre las BDs de tenant) — el #1 del control plane.
-5. Registrar `dominioPersonalizado` en Vercel al provisionar; agregar secretos a env de Vercel.
+1. **Superadmin (meta-DB): CRUD de tenants + botón "provisionar"** (usa `provisionTenant`) — primera UI
+   verificable en navegador (nuestro método). Necesita: agregar `NEON_API_KEY`+`ENCRYPTION_KEY` a env de Vercel.
+2. **Ampliar la fundación de dominio** en el schema del tenant: helpers de acceso (capacidades efectivas =
+   unión de cargos vigentes), "quién ejerce el cargo hoy", y seed de plantillas por tipo de entidad (editable).
+3. **Orquestador de migraciones** (versionadas + fan-out sobre las BDs de tenant) — el #1 del control plane;
+   formalizar `prisma/tenant/migrations` + `schemaVersion` por tenant.
+4. **Registrar `dominioPersonalizado` en Vercel** al provisionar (API de dominios) + caché de ruteo host→tenant.
+5. Cache de clientes Prisma por-tenant (evitar churn de conexiones en serverless).
 
 Luego: **módulo base** (Portal + Gestión Documental + Ventanilla Única + estructura organizacional).
 
-> **Estado:** control plane bricks 1 (meta-DB) y 2 (encryption + provisioning) listos, desplegados y
-> **verificados en vivo** (tenant demo con su BD Neon dedicada). Retomar por el **ruteo de tenant** + la
-> **fundación de dominio** (schema del tenant).
+> **Estado:** control plane (meta-DB + encryption + provisioning) **y** fundación de dominio v1 + ruteo,
+> todo desplegado y **verificado en vivo** (tenant demo con su BD Neon dedicada, escritura vía su subdominio).
+> Retomar por el **Superadmin (CRUD/provisionar tenants)** — la primera UI.
