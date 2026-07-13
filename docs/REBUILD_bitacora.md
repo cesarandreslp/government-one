@@ -54,6 +54,32 @@
 - ✅ **Auto-deploy GitHub→Vercel conectado** (`vercel git connect`, tras autorizar la app de Vercel en el
   repo privado). Push a `main` → Vercel despliega solo.
 
-> **Estado:** scaffolding + infra listos. **Siguiente:** empezar la fundación por el **plano de control**
-> — Prisma apuntando a la meta-DB Neon + schema `Tenant` (con `schemaVersion` + estado de provisioning) +
-> ruteo de tenant + orquestador de migraciones. Verificar conexión viva contra Neon.
+## Progreso — Plano de control, brick 1: meta-DB (2026-07-13)
+
+- ✅ **Prisma 7** configurado (¡ojo, difiere de versiones previas!):
+  - Generator `prisma-client` (NO `prisma-client-js`) → salida a `src/generated/prisma` (gitignored).
+  - La **URL de conexión va en `prisma.config.ts`** (no en el schema): `datasource.url` = `POSTGRES_URL_NON_POOLING`
+    (directa, para migraciones/shadow DB). Carga `.env` vía `dotenv/config`.
+  - El **cliente runtime requiere un driver adapter** (ya no hay `datasourceUrl`): `@prisma/adapter-pg` + `pg`,
+    con la URL **pooled** (`DATABASE_URL`). Ver `src/lib/prisma-meta.ts`.
+  - `migrate dev` **NO** auto-genera el cliente en Prisma 7 → correr `prisma generate` aparte (y `postinstall`
+    lo hace en Vercel).
+- ✅ **Schema meta-DB** (`prisma/schema.prisma`): modelo `Tenant` (slug, nombre, tipoEntidad, dominioPrincipal/
+  Personalizado, `neonProjectId`, `databaseUrl`/`databaseUrlDirect` cifradas, `secretosEncriptados`,
+  `schemaVersion`, `estadoProvision`) + enum `TenantEstadoProvision`. Es el **directorio de la flota**.
+- ✅ **Migración `init_meta_db` aplicada a la meta-DB Neon real** (tabla `tenants`).
+- ✅ **Verificado en vivo** (`scripts/verify-meta.ts`, `npx tsx`): `tenants = 0` — cliente + adapter + Neon OK.
+- ✅ **Commit `c3e9aa0` + push + deploy `READY`** en Vercel (build con `prisma generate` funciona).
+
+## ⏭️ Recomendación para mañana (orden del plano de control)
+
+1. **Encryption util** (AES-256-GCM) — para cifrar `databaseUrl`/`secretosEncriptados` del tenant. Pequeño, base de todo lo siguiente.
+2. **Superadmin: CRUD de tenants** sobre la meta-DB (crear/listar) — verificable en vivo.
+3. **Provisioning de tenant** (crear su BD Neon vía **Neon API** + aplicar schema del tenant + guardar connString cifrada + `estadoProvision`). ⚠️ Necesita un **`NEON_API_KEY`** de cuenta (atar a B3 de `VERIFICACION_neon_escala.md`).
+4. **Ruteo de tenant** (host → tenant → cliente Prisma de su BD).
+5. **Orquestador de migraciones** (versionadas + fan-out) — el #1 del plano de control.
+
+Luego: **fundación de dominio** (schema del tenant: Dependencia + Cargo + VinculacionCargo + Usuario), y recién ahí el módulo base (Portal+GD+VU).
+
+> **Estado:** infra + meta-DB (brick 1 del control plane) listos, desplegados y verificados. Retomar por el
+> punto 1 de la recomendación.
