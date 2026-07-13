@@ -1,0 +1,54 @@
+// Meta-DB (control plane) de Government One.
+// Directorio de la flota multi-tenant: cada Tenant apunta a su propia BD Neon.
+// Prisma 7: la URL de conexión vive en prisma.config.ts, no aquí.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Estado del aprovisionamiento de la BD de un tenant (control plane).
+enum TenantEstadoProvision {
+  CREANDO_NEON
+  APLICANDO_SCHEMA
+  SEMBRANDO
+  ACTIVO
+  FALLIDO
+  SUSPENDIDO
+}
+
+/// Un tenant = una entidad pública con su propia BD Neon (aislamiento fuerte).
+/// El ruteo por dominio y el orquestador de migraciones leen de aquí.
+/// Data-driven: sin datos de entidad quemados; todo entra como registro.
+model Tenant {
+  id          String @id @default(cuid())
+  slug        String @unique
+  nombre      String
+  tipoEntidad String // ALCALDIA | PERSONERIA | GOBERNACION | MINISTERIO … (catálogo, no quemado)
+
+  // Ruteo por dominio
+  dominioPrincipal     String  @unique // subdominio gestionado: <slug>.ossgovernmentone.lat
+  dominioPersonalizado String? @unique // dominio propio .gov.co, opcional
+
+  // BD del tenant (Neon) — connection strings CIFRADAS
+  neonProjectId     String?
+  databaseUrl       String? @db.Text // cifrada (pooled, runtime)
+  databaseUrlDirect String? @db.Text // cifrada (directa, migraciones)
+
+  // Secretos por tenant (AES-256-GCM): IA / storage / SMTP / WhatsApp / SECOP
+  secretosEncriptados String? @db.Text
+
+  // Control plane
+  schemaVersion   Int                   @default(0) // migraciones aplicadas a su BD
+  estadoProvision TenantEstadoProvision @default(CREANDO_NEON)
+  activo          Boolean               @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tenants")
+}
