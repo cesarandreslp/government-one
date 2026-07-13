@@ -110,19 +110,37 @@
   "Secretaría de Planeación"; dependencias 0→1). → multi-tenant runtime completo, punta a punta.
 - ✅ **Commit `1b15ef9` + push + deploy `READY`** (build genera meta + tenant clients en Vercel).
 
+## Progreso — Brick 4: Superadmin (1ª UI) — CRUD/provisionar tenants (2026-07-13)
+
+- ✅ **`NEON_API_KEY` + `ENCRYPTION_KEY` agregadas a env de Vercel** (Production + Development, vía
+  `vercel env add` por stdin). ⚠️ **Preview** quedó pendiente (quirk del CLI: pide rama de git; no bloquea —
+  Preview solo aplica a deploys de PR; se puede agregar en el dashboard).
+- ✅ **`src/app/superadmin/tenants/`** — primera UI (Next 16, App Router, server components + server action):
+  - `page.tsx` (server component): lista los tenants de la meta-DB (tabla con slug/nombre/tipo/dominio/estado).
+  - `provision-form.tsx` (client, `useActionState`): formulario slug/nombre/tipoEntidad → "Provisionar".
+  - `actions.ts` (`"use server"`): `provisionTenantAction` valida + llama `provisionTenant` + `revalidatePath`.
+  - Convenciones Next 16 confirmadas en `node_modules/next/dist/docs` (server actions, `revalidatePath`).
+- ✅ **Verificado en vivo** (dev server :3100, HTML SSR vía curl — el navegador in-app se colgó): la página
+  renderiza "Superadmin — Tenants" + formulario + el tenant demo (Alcaldía Demo · demo.ossgovernmentone.lat ·
+  ALCALDIA · ACTIVO). La lista lee la meta-DB OK. `provisionTenantAction` envuelve el `provisionTenant` ya
+  probado end-to-end.
+- ✅ **Commit `9a4812a` + push + deploy `READY`**.
+- ⚠️ **Notas:** (a) **falta AUTH** de superadmin de plataforma (hoy protegido solo por el SSO de Vercel del
+  deployment); (b) provisionar SÍNCRONO desde la UI **timeoutea en Vercel Hobby** (~10s) — a escala va como
+  job asíncrono (orquestador); en local funciona; (c) test de click-to-provisionar en navegador pendiente
+  (pane in-app inestable) — la función está probada.
+
 ## ⏭️ Recomendación para el siguiente tramo
 
-1. **Superadmin (meta-DB): CRUD de tenants + botón "provisionar"** (usa `provisionTenant`) — primera UI
-   verificable en navegador (nuestro método). Necesita: agregar `NEON_API_KEY`+`ENCRYPTION_KEY` a env de Vercel.
+1. **Auth de plataforma** (login de superadmin) — antes de exponer el Superadmin fuera del SSO de Vercel.
 2. **Ampliar la fundación de dominio** en el schema del tenant: helpers de acceso (capacidades efectivas =
-   unión de cargos vigentes), "quién ejerce el cargo hoy", y seed de plantillas por tipo de entidad (editable).
-3. **Orquestador de migraciones** (versionadas + fan-out sobre las BDs de tenant) — el #1 del control plane;
-   formalizar `prisma/tenant/migrations` + `schemaVersion` por tenant.
-4. **Registrar `dominioPersonalizado` en Vercel** al provisionar (API de dominios) + caché de ruteo host→tenant.
-5. Cache de clientes Prisma por-tenant (evitar churn de conexiones en serverless).
+   unión de cargos vigentes), "quién ejerce el cargo hoy", seed de plantillas por tipo de entidad (editable).
+3. **Orquestador de migraciones** (versionadas + fan-out; formalizar `prisma/tenant/migrations` + `schemaVersion`).
+4. **Provisioning asíncrono** (cola/worker) — para no topar el timeout de Vercel; + registrar `dominioPersonalizado`
+   en Vercel (API de dominios) + caché de ruteo host→tenant + caché de clientes Prisma por-tenant.
 
 Luego: **módulo base** (Portal + Gestión Documental + Ventanilla Única + estructura organizacional).
 
-> **Estado:** control plane (meta-DB + encryption + provisioning) **y** fundación de dominio v1 + ruteo,
-> todo desplegado y **verificado en vivo** (tenant demo con su BD Neon dedicada, escritura vía su subdominio).
-> Retomar por el **Superadmin (CRUD/provisionar tenants)** — la primera UI.
+> **Estado:** control plane (meta-DB + encryption + provisioning) + fundación de dominio v1 + ruteo + **primera
+> UI (Superadmin de tenants)**, todo desplegado y verificado en vivo. Retomar por **auth de plataforma** o
+> **ampliar la fundación de dominio** (helpers de acceso + plantillas de cargo).
