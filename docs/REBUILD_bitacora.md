@@ -51,8 +51,8 @@
   (pooled, runtime), `POSTGRES_URL_NON_POOLING` / `DATABASE_URL_UNPOOLED` (directo, migraciones),
   `NEON_PROJECT_ID`. Esta Neon = **meta-DB** del control plane; los tenant-DB se provisionan luego con el
   orquestador (Neon API).
-- ⚠️ **Pendiente (usuario):** autorizar la app de Vercel en GitHub para el repo → habilita auto-deploy on
-  push. Mientras, deploy por CLI (`vercel deploy`).
+- ✅ **Auto-deploy GitHub→Vercel conectado** (`vercel git connect`, tras autorizar la app de Vercel en el
+  repo privado). Push a `main` → Vercel despliega solo.
 
 > **Estado:** scaffolding + infra listos. **Siguiente:** empezar la fundación por el **plano de control**
 > — Prisma apuntando a la meta-DB Neon + schema `Tenant` (con `schemaVersion` + estado de provisioning) +
