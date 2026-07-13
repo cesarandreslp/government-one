@@ -71,15 +71,39 @@
 - ✅ **Verificado en vivo** (`scripts/verify-meta.ts`, `npx tsx`): `tenants = 0` — cliente + adapter + Neon OK.
 - ✅ **Commit `c3e9aa0` + push + deploy `READY`** en Vercel (build con `prisma generate` funciona).
 
-## ⏭️ Recomendación para mañana (orden del plano de control)
+## Progreso — Plano de control, brick 2: encryption + provisioning (2026-07-13)
 
-1. **Encryption util** (AES-256-GCM) — para cifrar `databaseUrl`/`secretosEncriptados` del tenant. Pequeño, base de todo lo siguiente.
-2. **Superadmin: CRUD de tenants** sobre la meta-DB (crear/listar) — verificable en vivo.
-3. **Provisioning de tenant** (crear su BD Neon vía **Neon API** + aplicar schema del tenant + guardar connString cifrada + `estadoProvision`). ⚠️ Necesita un **`NEON_API_KEY`** de cuenta (atar a B3 de `VERIFICACION_neon_escala.md`).
-4. **Ruteo de tenant** (host → tenant → cliente Prisma de su BD).
-5. **Orquestador de migraciones** (versionadas + fan-out) — el #1 del plano de control.
+- ✅ **`src/lib/encryption.ts`** — AES-256-GCM (`encrypt`/`decrypt`/`encryptJson`/`decryptJson`), clave en
+  `ENCRYPTION_KEY` (32 bytes hex, en `.env`, gitignored). Verificado en vivo (`scripts/verify-crypto.ts`):
+  round-trip string/JSON + detección de manipulación (authTag) OK.
+- ✅ **`src/lib/provisioning/neon.ts`** — crear/borrar proyecto Neon vía API v2. La `NEON_API_KEY` es
+  **org-scoped** (org "CESAR" = `org-fragrant-hat-12076614`; `/users/me` da 404 pero se resuelve el `org_id`
+  vía `/users/me/organizations`, que ya hace `getOrgId()`). Devuelve directUrl + pooledUrl (deriva `-pooler`).
+- ✅ **`src/lib/provisioning/provision.ts`** — `provisionTenant()`: registro meta-DB (CREANDO_NEON) → crea BD
+  Neon dedicada → guarda `databaseUrl`/`databaseUrlDirect` **cifradas** + `neonProjectId` (APLICANDO_SCHEMA) →
+  **rollback** (borra proyecto Neon + marca FALLIDO) si falla.
+- ✅ **Verificado EN VIVO** (`scripts/test-provision.ts`): provisionado el **tenant demo** con su propio
+  proyecto Neon (`young-silence-83309176`), connStrings cifradas en la meta-DB, y **conexión a la BD del
+  tenant** (SELECT 1 = 1) OK. → la arquitectura DB-por-tenant + cifrado funciona de punta a punta.
+- ✅ **Commit `e52fd99` + push + deploy `READY`**.
+- ⚠️ **Pendientes de este brick:** (a) **aplicar el schema del tenant** a su BD (necesita la fundación de
+  dominio) y luego marcar `ACTIVO`; (b) agregar **`NEON_API_KEY` + `ENCRYPTION_KEY` a las env de Vercel**
+  antes de provisionar desde producción; (c) al provisionar, registrar el `dominioPersonalizado` del tenant
+  en Vercel (API de dominios) — recordatorio del usuario: los tenants configuran su propio dominio.
+- 🗑️ **Dato:** existe un tenant demo real en Neon (`young-silence-83309176`) — borrable con `deleteNeonProject`.
 
-Luego: **fundación de dominio** (schema del tenant: Dependencia + Cargo + VinculacionCargo + Usuario), y recién ahí el módulo base (Portal+GD+VU).
+## ⏭️ Recomendación para el siguiente tramo
 
-> **Estado:** infra + meta-DB (brick 1 del control plane) listos, desplegados y verificados. Retomar por el
-> punto 1 de la recomendación.
+1. **Ruteo de tenant** (host → tenant → cliente Prisma de su BD), resolviendo subdominio gestionado **y
+   dominio propio** (`dominioPersonalizado`), con caché host→tenant.
+2. **Fundación de DOMINIO = schema del tenant** (Dependencia + Cargo + VinculacionCargo + Usuario + …) →
+   habilita el paso "aplicar schema" del provisioning (marcar ACTIVO) y el **orquestador de migraciones**.
+3. **Superadmin: CRUD de tenants + botón "provisionar"** (usa `provisionTenant`) — UI verificable.
+4. **Orquestador de migraciones** (versionadas + fan-out sobre las BDs de tenant) — el #1 del control plane.
+5. Registrar `dominioPersonalizado` en Vercel al provisionar; agregar secretos a env de Vercel.
+
+Luego: **módulo base** (Portal + Gestión Documental + Ventanilla Única + estructura organizacional).
+
+> **Estado:** control plane bricks 1 (meta-DB) y 2 (encryption + provisioning) listos, desplegados y
+> **verificados en vivo** (tenant demo con su BD Neon dedicada). Retomar por el **ruteo de tenant** + la
+> **fundación de dominio** (schema del tenant).
