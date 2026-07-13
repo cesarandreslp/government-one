@@ -1,0 +1,145 @@
+// Schema del TENANT (fundación de dominio). Cada tenant tiene su propia BD Neon con
+// ESTE schema. Aparte de la meta-DB (prisma/schema.prisma).
+// Núcleo: estructura organizacional + cargos + vínculos persona↔cargo. Los módulos
+// (contratación, presupuesto, …) se agregan encima en fases posteriores.
+// Prisma 7: la URL de conexión NO va aquí; el cliente se crea con adapter por-tenant
+// (ver src/lib/tenant-db.ts) y las migraciones se aplican por-tenant.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/tenant"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Identidad de plataforma (el rol NO modela funciones; eso son capacidades vía cargo) ───
+enum RolUsuario {
+  SUPER_ADMIN // admin máximo de la entidad
+  ADMIN
+  USER // funcionario genérico
+  CONTRATISTA // identidad externa (portal), no ocupa cargo
+}
+
+enum DependenciaTipo {
+  DESPACHO
+  SECRETARIA
+  SUBSECRETARIA
+  DIRECCION
+  OFICINA
+}
+
+enum VinculacionTipo {
+  TITULAR
+  ENCARGADO // cubre ausencias temporales
+  PROVISIONAL // por resolución/decreto hasta concurso de méritos
+}
+
+enum AusenciaTipo {
+  VACACIONES
+  LICENCIA
+  COMISION
+  INCAPACIDAD
+}
+
+/// Árbol organizacional: Secretaría → Subsecretaría → Dirección → Oficina (profundidad libre).
+model Dependencia {
+  id          String          @id @default(cuid())
+  codigo      String          @unique
+  nombre      String
+  tipo        DependenciaTipo @default(SECRETARIA)
+  /// Servicio compartido/transversal (Jurídica, Contratación) que sirve a TODAS las dependencias.
+  esServicioCompartido Boolean @default(false)
+  activa      Boolean         @default(true)
+
+  // Jerarquía
+  padreId String?
+  padre   Dependencia?  @relation("SubDependencias", fields: [padreId], references: [id])
+  hijas   Dependencia[] @relation("SubDependencias")
+
+  cargos Cargo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([padreId])
+  @@map("dependencias")
+}
+
+/// Cargo (posición) dentro de una dependencia. Confiere un bundle de capacidades.
+/// La asignación de trabajo va al CARGO; se resuelve a quien lo ejerce hoy.
+model Cargo {
+  id            String      @id @default(cuid())
+  dependenciaId String
+  dependencia   Dependencia @relation(fields: [dependenciaId], references: [id])
+  nombre        String
+  /// ¿Es el cargo cabeza de la dependencia? (fallback de ruteo/aprobación).
+  esJefatura    Boolean     @default(false)
+  /// Bundle de capacidades: { moduloId: capacidad[] }. Mismo formato que los grants por usuario.
+  grants        Json        @default("{}")
+  activo        Boolean     @default(true)
+
+  vinculaciones VinculacionCargo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dependenciaId])
+  @@map("cargos")
+}
+
+/// Funcionario (persona) de la entidad. Identidad; las funciones vienen de sus cargos.
+model Usuario {
+  id       String     @id @default(cuid())
+  email    String     @unique
+  nombre   String
+  apellido String
+  rol      RolUsuario @default(USER)
+  activo   Boolean    @default(true)
+
+  vinculaciones VinculacionCargo[]
+  ausencias     Ausencia[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("usuarios")
+}
+
+/// Vínculo persona↔cargo. Una persona puede tener VARIOS vigentes (titular + encargos).
+/// desde/hasta dan el snapshot histórico (auditoría: quién ejercía qué en el momento T).
+model VinculacionCargo {
+  id        String          @id @default(cuid())
+  usuarioId String
+  usuario   Usuario         @relation(fields: [usuarioId], references: [id])
+  cargoId   String
+  cargo     Cargo           @relation(fields: [cargoId], references: [id])
+  tipo      VinculacionTipo @default(TITULAR)
+  /// Acto administrativo (resolución/decreto) que soporta el nombramiento (encargo/provisional).
+  actoAdmin String?
+  desde     DateTime        @default(now())
+  hasta     DateTime? // null = vigente
+
+  createdAt DateTime @default(now())
+
+  @@index([usuarioId])
+  @@index([cargoId])
+  @@map("vinculaciones_cargo")
+}
+
+/// Ausencia (vacaciones/licencia/…) — explica el hueco que llena un encargo (enriquecimiento RRHH).
+model Ausencia {
+  id        String       @id @default(cuid())
+  usuarioId String
+  usuario   Usuario      @relation(fields: [usuarioId], references: [id])
+  tipo      AusenciaTipo
+  desde     DateTime
+  hasta     DateTime
+  motivo    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([usuarioId])
+  @@map("ausencias")
+}

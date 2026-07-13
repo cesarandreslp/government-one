@@ -4,6 +4,7 @@
 import { prismaMeta } from "@/lib/prisma-meta"
 import { encrypt } from "@/lib/encryption"
 import { createNeonProject, deleteNeonProject } from "./neon"
+import { applyTenantSchema } from "./schema-apply"
 
 export interface ProvisionTenantInput {
   slug: string
@@ -39,7 +40,6 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
     neonProjectId = neon.projectId
 
     // 3. Guardar connStrings CIFRADAS + neonProjectId. Estado → APLICANDO_SCHEMA.
-    // TODO: aplicar el schema del tenant (fundación de dominio) y luego marcar ACTIVO.
     await prismaMeta.tenant.update({
       where: { id: tenant.id },
       data: {
@@ -48,6 +48,13 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
         databaseUrlDirect: encrypt(neon.directUrl),
         estadoProvision: "APLICANDO_SCHEMA",
       },
+    })
+
+    // 4. Aplicar el schema del tenant (fundación de dominio) a su BD → ACTIVO.
+    await applyTenantSchema(neon.directUrl)
+    await prismaMeta.tenant.update({
+      where: { id: tenant.id },
+      data: { estadoProvision: "ACTIVO", schemaVersion: 1 },
     })
 
     return { tenantId: tenant.id, neonProjectId: neon.projectId, databaseName: neon.databaseName }
