@@ -198,3 +198,31 @@ Crear el primer superadmin (yo no manejo tu contraseña):
 3. Borra la línea `SUPERADMIN_PASSWORD` de `.env`.
 Esto escribe en la **meta-DB de producción** (el `.env` local apunta a la Neon real), así que ya podrás
 entrar en el deploy — una vez se quite el SSO de Vercel (paso 3 del plan).
+
+## Progreso — CMS del Superadmin (paso 2/3) (2026-07-14)
+
+- ✅ **Modelos `PaginaCms` + `BloqueCms`** en la meta-DB (migración `add_cms`). Una página = bloques
+  ordenados; `BloqueCms.contenido` es **JSON tipado por `tipo`** (hero, lista_valores, lista_modulos);
+  `clave` estable por bloque (`@@unique([paginaId, clave])`). Genérico → sirve para la landing y otras
+  páginas del SaaS.
+- ✅ **`src/lib/cms.ts`**: tipos de contenido de la landing (`HeroContenido`, `Valor`, `Modulo`…) +
+  `obtenerPagina(slug)` / `bloque(pagina, clave)`.
+- ✅ **Landing data-driven:** `src/app/page.tsx` ahora lee del CMS (`force-dynamic`); sin texto de plataforma
+  quemado. Sin datos → estado vacío discreto. Soporta **capturas por módulo** (URLs) con placeholder
+  "próximamente" mientras no haya storage.
+- ✅ **Superadmin:** `/superadmin/cms` (lista de páginas) + `/superadmin/cms/[slug]` (editor). Editores cliente
+  hero/valores/módulos (agregar/quitar, `useActionState`) → `guardarBloqueAction` (`"use server"`, exige
+  `requerirAdmin`, `revalidatePath("/")`). Nav Tenants/CMS en el layout.
+- ✅ **`scripts/seed-cms.ts`** siembra la landing en la meta-DB (idempotente) — ya corrido contra prod.
+- ✅ **Verificado EN VIVO:** (a) landing sirve del CMS; (b) editar un bloque por script se refleja en la
+  landing; (c) **guardado real por la UI** (server action con sesión de prueba efímera inyectada) → "Guardado.";
+  (d) proxy protege `/superadmin/cms`. Admin efímero de verificación borrado (0 admins). `tsc` limpio.
+- ✅ **Commit `c69b3b3` + push + deploy prod `READY`**.
+
+## ⏭️ Paso 3/3 pendiente — exponer la landing (quitar SSO de Vercel)
+
+- La landing pública y `/login` ya están listas; `/superadmin/*` protegido por auth propio. Falta **desactivar
+  la Deployment Protection (SSO) de Vercel** para que `government-one.vercel.app` muestre la landing al público.
+- **Prerrequisito recomendado:** que el usuario **siembre su admin** (`scripts/seed-admin.ts`) antes/después de
+  exponer, para poder entrar (sin admin, `/superadmin` queda inaccesible aunque el sitio sea público → seguro).
+- Exposición = acción outward-facing → **confirmar con el usuario** el momento antes de flipear a público.
