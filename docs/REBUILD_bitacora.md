@@ -163,3 +163,38 @@ Luego: **módulo base** (Portal + Gestión Documental + Ventanilla Única + estr
   del SaaS (contenido de módulos + capturas en la meta-DB). Nota: hoy el deploy sigue tras el SSO de Vercel;
   al exponer la landing pública hay que **desactivar ese SSO** y montar el auth de plataforma para
   `/superadmin/*`.
+
+## Progreso — Auth de plataforma (login del superadmin) (2026-07-14)
+
+Orden acordado con el usuario: **(1) auth → (2) CMS → (3) exponer landing (quitar SSO)**. Esto es el (1).
+
+- ✅ **Modelo `AdminPlataforma`** en la meta-DB (migración `20260714141457_add_admin_plataforma`, aplicada a
+  Neon). Contraseña **solo como hash bcrypt** (`bcryptjs`, 12 rounds); nunca en claro.
+- ✅ **Sesión stateless con `jose`** (JWT HS256 en cookie httpOnly, 7 días). Split intencional:
+  - `src/lib/session.ts` — cripto pura (firmar/verificar), **sin `next/headers`** para poder usarse en el proxy.
+  - `src/lib/session-cookies.ts` — set/get/delete de la cookie (`server-only`, `next/headers`).
+- ✅ **`src/proxy.ts`** — ⚠️ **Next 16 renombró `middleware`→`proxy`** (archivo `proxy.ts`, `export function
+  proxy`, corre en Node; confirmado en `node_modules/next/dist/docs/.../proxy.md`). Chequeo **optimista**:
+  `/superadmin/*` sin sesión → `/login?next=…`; con sesión en `/login` → `/superadmin/tenants`.
+- ✅ **DAL `src/lib/dal.ts`** (`requerirAdmin` con React `cache`) = cerradura real cerca de los datos.
+  `src/app/superadmin/layout.tsx` la aplica a todo `/superadmin/*` + shell (email + botón "Salir").
+  `provisionTenantAction` ahora exige sesión.
+- ✅ **`/login`**: `page.tsx` (searchParams como Promise — Next 16) + `login-form.tsx` (`useActionState`) +
+  `actions.ts` (`loginAction` valida credenciales, crea sesión, redirige; `logoutAction`). CTAs de la landing → `/login`.
+- ✅ **`src/lib/auth.ts`** `verificarCredenciales` (bcrypt compare + `ultimoIngreso`; comparación señuelo para no
+  filtrar por temporización si el email existe).
+- ✅ **Seed sin exponer contraseña:** `scripts/seed-admin.ts` lee `SUPERADMIN_EMAIL`/`SUPERADMIN_PASSWORD` del
+  entorno (upsert). **El usuario debe correrlo** para crear el primer admin (aún no hay ninguno).
+- ✅ **Verificado en vivo:** proxy redirige `/superadmin/tenants`→`/login` (navegador); `scripts/verify-auth.ts`
+  probó contra la meta-DB real bcrypt (correcta/incorrecta) + jose (firma/verifica con `SESSION_SECRET` real) +
+  limpieza → 0 admins. `tsc --noEmit` limpio. Sin errores de consola.
+- ✅ **`SESSION_SECRET`** generado y en env de Vercel (Production+Development) y `.env` local (gitignored).
+- ✅ **Commit `1b98db6` + push + deploy prod `READY`**.
+
+### 🔑 Acción pendiente del USUARIO (para poder entrar)
+Crear el primer superadmin (yo no manejo tu contraseña):
+1. En `government-one/.env` agrega `SUPERADMIN_EMAIL=tu@correo` y `SUPERADMIN_PASSWORD=<≥10 chars>` (opcional `SUPERADMIN_NOMBRE`).
+2. `cd government-one && npx tsx scripts/seed-admin.ts`
+3. Borra la línea `SUPERADMIN_PASSWORD` de `.env`.
+Esto escribe en la **meta-DB de producción** (el `.env` local apunta a la Neon real), así que ya podrás
+entrar en el deploy — una vez se quite el SSO de Vercel (paso 3 del plan).
