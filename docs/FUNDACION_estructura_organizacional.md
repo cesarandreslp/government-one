@@ -199,3 +199,32 @@ ConContrato {
 de la fundación (**plano de control**: provisioning asíncrono + orquestación de migraciones + ruteo de
 tenant) — documento aparte. Con ambas hojas cerradas, arranca el rebuild: fundación primero, luego
 módulo por módulo verificado en vivo.
+
+---
+
+## 8. Implementación (cerrada 2026-07-14) — helpers de acceso + plantillas de cargo
+
+Traducción del modelo a código en `src/lib/dominio/` (greenfield; no se reutilizó `accesos.ts` viejo):
+
+- **`capacidades.ts`** — catálogo NACIONAL `CAPACIDADES_POR_MODULO` (primitivo de plataforma, no de
+  entidad): `gestion_documental`, `ventanilla_unica`, `contratacion` (elaborar/revisar_juridica/
+  concepto_juridico/supervisar/aprobar), `presupuesto` (expedir_cdp/rp/aprobar). Tipo `Grants =
+  {modulo: capacidad[]}` + `unirGrants` (unión sin duplicados) + `grantsIncluyen` + `esCapacidadValida`.
+  Cada módulo AMPLÍA el catálogo cuando se construye.
+- **`acceso.ts`** — helpers sobre la BD de UN tenant: `capacidadesEfectivas(usuario)` = **unión de grants
+  de los cargos ACTIVOS con vínculo vigente**; `tieneCapacidad`; `vinculacionesVigentes`; `usuarioAusente`;
+  **`quienEjerce(cargo)`** (ENCARGADO vigente → TITULAR/PROVISIONAL sin ausencia → null=fallback);
+  `cabezaDeDependencia`. Vigencia temporal por `desde/hasta` (auditoría "quién tenía autoridad en T").
+- **`plantillas-cargo.ts`** — `PLANTILLAS_POR_TIPO` (ALCALDIA, PERSONERIA) = árbol de dependencias +
+  cargos con grants, por *tipo* (editable tras sembrar; NO datos de entidad concreta). `aplicarPlantilla(
+  db, tipoEntidad)` siembra idempotente (dependencias por `codigo`, cargos por (dependencia, nombre)).
+
+**Verificado EN VIVO** (`scripts/verify-dominio.ts`, contra la BD Neon del tenant demo): plantilla ALCALDIA
+→ 7 dependencias / 11 cargos; capacidades por cargo; **quienEjerce** pasa de TITULAR (Ana) a ENCARGADO
+(Beto) al registrar la ausencia de Ana; el encargo **SUMA** autoridad conservando el cargo base; capacidad
+fuera del cargo = negada. 11/11 asserts OK; limpieza a 0.
+
+**Pendiente (no bloqueante, para cuando lleguen los módulos):** cablear el ruteo de VU a `quienEjerce`
+(con la key IA por-tenant → [[regla-oro-credenciales-por-tenant]]); `puedeAvanzarContrato` = capacidad(vía
+cargo) Y FK por-contrato; UI de administración de cargos/vínculos; override individual `Usuario.modulosAsignados`
+(no está en el schema del rebuild — se agrega solo si se necesita); casos borde: delegación de firma, cargo vacante.
