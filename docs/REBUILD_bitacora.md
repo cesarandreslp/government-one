@@ -232,3 +232,18 @@ entrar en el deploy — una vez se quite el SSO de Vercel (paso 3 del plan).
 > **Estado:** plan del usuario (1 auth → 2 CMS → 3 exponer) **completo y en producción**. La landing pública se
 > administra desde el CMS del Superadmin, detrás de auth propio. Retomar por la **fundación de dominio restante**
 > (helpers de acceso + plantillas de cargo) o el **módulo base** (Portal + GD + Ventanilla Única).
+
+## Progreso — Fundación de dominio cerrada (helpers de acceso + plantillas) (2026-07-14)
+
+- ✅ `src/lib/dominio/` (greenfield, sin reusar `accesos.ts` viejo): **`capacidades.ts`** (catálogo nacional +
+  `Grants`/`unirGrants`/`grantsIncluyen`), **`acceso.ts`** (`capacidadesEfectivas`=unión de cargos vigentes,
+  `tieneCapacidad`, `quienEjerce`, `usuarioAusente`, `cabezaDeDependencia`), **`plantillas-cargo.ts`**
+  (`PLANTILLAS_POR_TIPO` ALCALDIA/PERSONERIA por *tipo*, editable; `aplicarPlantilla` idempotente).
+- ✅ Detalle del diseño→código en `FUNDACION_estructura_organizacional.md` §8.
+- ✅ **Verificado EN VIVO** (`scripts/verify-dominio.ts` contra la BD Neon del tenant demo): 11/11 asserts
+  (plantilla→7 deps/11 cargos; encargo suma autoridad al cargo base; `quienEjerce` pasa de titular a encargado
+  en ausencia; capacidad fuera del cargo negada; limpieza a 0). `tsc` limpio. **Commit `74706ea` + deploy READY**.
+
+> **Estado:** fundación **completa** (plano de control + dominio, ambos con código y verificados en vivo) +
+> plataforma pública (landing/CMS/auth). **Siguiente: MÓDULO BASE — Portal Institucional** (Portal + Gestión
+> Documental + Ventanilla Única + estructura organizacional). Al cablear VU, resolver ruteo con `quienEjerce`.
