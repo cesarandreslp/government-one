@@ -69,3 +69,36 @@ model AdminPlataforma {
 
   @@map("admins_plataforma")
 }
+
+/// CMS de PLATAFORMA: páginas públicas del SaaS (landing y otras) administradas desde el Superadmin.
+/// Data-driven: el contenido vive aquí, no quemado en el código. Una página = varios bloques ordenados.
+model PaginaCms {
+  id        String       @id @default(cuid())
+  slug      String       @unique // "landing", "precios", "contacto", …
+  titulo    String
+  publicada Boolean      @default(true)
+  bloques   BloqueCms[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@map("paginas_cms")
+}
+
+/// Bloque de contenido de una página. `tipo` decide cómo se renderiza (hero, lista_valores,
+/// lista_modulos, richtext…); `contenido` es el payload JSON tipado por el tipo. `clave` es
+/// estable para poder ubicar el bloque desde el código sin depender del orden.
+model BloqueCms {
+  id        String    @id @default(cuid())
+  paginaId  String
+  pagina    PaginaCms @relation(fields: [paginaId], references: [id], onDelete: Cascade)
+  clave     String // estable dentro de la página: "hero", "valores", "modulos"
+  tipo      String
+  orden     Int       @default(0)
+  visible   Boolean   @default(true)
+  contenido Json      @default("{}")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([paginaId, clave])
+  @@map("bloques_cms")
+}
