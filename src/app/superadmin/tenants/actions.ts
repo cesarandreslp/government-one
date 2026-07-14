@@ -2,9 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { provisionTenant } from "@/lib/provisioning/provision"
-
-// TODO(auth): verificar sesión de superadmin de plataforma antes de provisionar.
-// Por ahora el deploy está detrás del SSO de Vercel (protección de deployment).
+import { requerirAdmin } from "@/lib/dal"
 
 export interface ProvisionState {
   ok?: boolean
@@ -16,6 +14,8 @@ export async function provisionTenantAction(
   _prev: ProvisionState,
   formData: FormData,
 ): Promise<ProvisionState> {
+  await requerirAdmin() // exige sesión de superadmin antes de tocar el control plane
+
   const slug = String(formData.get("slug") ?? "").trim().toLowerCase()
   const nombre = String(formData.get("nombre") ?? "").trim()
   const tipoEntidad = String(formData.get("tipoEntidad") ?? "").trim()

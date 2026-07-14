@@ -78,7 +78,7 @@ export default function Home() {
             <span className="text-lg font-semibold tracking-tight">Government One</span>
           </div>
           <Link
-            href="/superadmin/tenants"
+            href="/login"
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
           >
             Acceso administrativo
@@ -102,7 +102,7 @@ export default function Home() {
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
-              href="/superadmin/tenants"
+              href="/login"
               className="rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700"
             >
               Acceso administrativo (SaaS)
@@ -168,7 +168,7 @@ export default function Home() {
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-6 py-8 text-sm text-slate-500 sm:flex-row">
           <span>© {new Date().getFullYear()} Government One — OSS Innovation</span>
-          <Link href="/superadmin/tenants" className="font-medium text-blue-600 hover:underline">
+          <Link href="/login" className="font-medium text-blue-600 hover:underline">
             Acceso administrativo →
           </Link>
         </div>

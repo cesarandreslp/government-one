@@ -52,3 +52,20 @@ model Tenant {
 
   @@map("tenants")
 }
+
+/// Superadmin de PLATAFORMA (SaaS) — opera el control plane (ciclo de vida de tenants, CMS del
+/// landing). No es un usuario de tenant. Vive en la meta-DB; el login se valida contra esta tabla.
+/// La contraseña se guarda SOLO como hash (bcrypt); nunca en claro.
+model AdminPlataforma {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  nombre       String
+  passwordHash String
+  activo       Boolean   @default(true)
+  ultimoIngreso DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins_plataforma")
+}
