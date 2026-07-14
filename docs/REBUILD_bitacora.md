@@ -219,10 +219,16 @@ entrar en el deploy — una vez se quite el SSO de Vercel (paso 3 del plan).
   (d) proxy protege `/superadmin/cms`. Admin efímero de verificación borrado (0 admins). `tsc` limpio.
 - ✅ **Commit `c69b3b3` + push + deploy prod `READY`**.
 
-## ⏭️ Paso 3/3 pendiente — exponer la landing (quitar SSO de Vercel)
+## Progreso — Exponer la landing (paso 3/3) (2026-07-14) ✅ HECHO
 
-- La landing pública y `/login` ya están listas; `/superadmin/*` protegido por auth propio. Falta **desactivar
-  la Deployment Protection (SSO) de Vercel** para que `government-one.vercel.app` muestre la landing al público.
-- **Prerrequisito recomendado:** que el usuario **siembre su admin** (`scripts/seed-admin.ts`) antes/después de
-  exponer, para poder entrar (sin admin, `/superadmin` queda inaccesible aunque el sitio sea público → seguro).
-- Exposición = acción outward-facing → **confirmar con el usuario** el momento antes de flipear a público.
+- ✅ Usuario **sembró su superadmin** (`scripts/seed-admin.ts`): `superadmin@government-one.com`, activo, hash
+  bcrypt válido (verificado en la meta-DB; su contraseña nunca la vio Claude).
+- ✅ **SSO de Vercel desactivado** (con autorización explícita del usuario): `PATCH /v9/projects/{id}` con
+  `ssoProtection: null` (antes estaba `all_except_custom_domains`). La landing y `/login` quedan públicos.
+- ✅ **Verificado en producción:** `government-one.vercel.app/` → 200 sirviendo la landing del CMS (ya no la
+  pantalla "Vercel Authentication"); `/login` → 200; `/superadmin/cms` → redirige a `/login?next=…` (el proxy
+  protege el control plane en prod). El usuario ya puede entrar en prod con su admin.
+
+> **Estado:** plan del usuario (1 auth → 2 CMS → 3 exponer) **completo y en producción**. La landing pública se
+> administra desde el CMS del Superadmin, detrás de auth propio. Retomar por la **fundación de dominio restante**
+> (helpers de acceso + plantillas de cargo) o el **módulo base** (Portal + GD + Ventanilla Única).
