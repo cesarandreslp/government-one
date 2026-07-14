@@ -144,3 +144,22 @@ Luego: **módulo base** (Portal + Gestión Documental + Ventanilla Única + estr
 > **Estado:** control plane (meta-DB + encryption + provisioning) + fundación de dominio v1 + ruteo + **primera
 > UI (Superadmin de tenants)**, todo desplegado y verificado en vivo. Retomar por **auth de plataforma** o
 > **ampliar la fundación de dominio** (helpers de acceso + plantillas de cargo).
+
+## Progreso — Landing corporativa de la plataforma (2026-07-14)
+
+- ✅ **`src/app/page.tsx`** — reemplaza la página por defecto de create-next-app por la **landing corporativa
+  de OSS Government One**: nav (marca + "Acceso administrativo"), hero (propuesta de valor), 4 valores
+  (aislamiento por entidad / modular por contrato / integración transparente / hecho para el sector público
+  CO), **catálogo de módulos** (Portal Institucional = "Fundación"; Financiero, Presupuesto, Banco de
+  Proyectos, Contratación, Nómina/Tesorería/Inventarios = "Planeado"), y footer. CTA a `/superadmin/tenants`
+  (acceso administrativo SaaS — provisional hasta que exista el auth/login de plataforma).
+- ✅ **Estructurada para el CMS futuro:** módulos y valores viven como arreglos de datos (`MODULOS`, `VALORES`)
+  con placeholders "Pantallas del módulo · próximamente" → migrarán al **CMS del Superadmin (meta-DB)** sin
+  reproceso, y cada módulo se llenará con **capturas reales** a medida que se construya.
+- ✅ `layout.tsx`: metadata Government One + `lang="es"`.
+- ✅ **Verificado en vivo** (dev :3100, `read_page`): render completo, cero errores de consola. `tsc --noEmit`
+  limpio. **Commit `4bf8976` + push + deploy prod `READY`**.
+- ⏭️ **Siguiente pedido del usuario:** **CMS en el Superadmin** para administrar esta landing y otras páginas
+  del SaaS (contenido de módulos + capturas en la meta-DB). Nota: hoy el deploy sigue tras el SSO de Vercel;
+  al exponer la landing pública hay que **desactivar ese SSO** y montar el auth de plataforma para
+  `/superadmin/*`.
