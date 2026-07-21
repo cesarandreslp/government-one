@@ -451,3 +451,32 @@ precisión — mover el project-domain, no borrar el dominio de la cuenta):
 **Estado del ruteo:** `government-one.vercel.app` = plataforma; `*.ossgovernmentone.lat` = tenants (automático
 por provisión). **Pendiente opcional (no pedido):** mover también el **apex** `ossgovernmentone.lat` a
 government-one (hoy sigue sirviendo la landing vieja) si se quiere que el dominio raíz sea la landing nueva.
+
+## Progreso — Módulo Base, Paso D: Portal público del tenant (2026-07-21)
+
+Cierra el bundle base: el ciudadano entra por el host del tenant y ve SU portal (cero hardcode de entidad) +
+radica PQRSD que cae en la Ventanilla Única del tenant.
+
+**Ruteo de la raíz por HOST:** `src/app/page.tsx` ahora ramifica con `contextoTenant()` — host de tenant →
+**portal del tenant** (`PortalTenant`); host de plataforma → landing corporativa (extraída a
+`landing-plataforma.tsx`, sin cambios). Las rutas públicas (`/`, `/pqrsd`, `/transparencia`) NO están en el
+matcher del `proxy.ts` → públicas sin sesión.
+
+**Portal del tenant (`portal-tenant.tsx` + `portal-shell.tsx`):** cabecera con el **nombre real del tenant**,
+hero Gov.co, **directorio de dependencias** (del árbol del tenant), y el menú **Transparencia** (12 categorías
+Res. MinTIC 1519/2020, `src/lib/transparencia.ts` — primitivo NACIONAL, no dato de entidad; el contenido por
+categoría es dato del tenant, hoy estado vacío "Sin publicar"). Shell reutilizado por las 3 páginas del portal.
+
+**PQRSD pública (`/pqrsd`):** `RadicarForm` (público, sin sesión) → `radicarPublicoAction` resuelve el tenant
+por host y crea la PQRSD (canal WEB) con **el mismo ruteo por cargo** que el admin; devuelve el número. Sin
+elegir dependencia (el ciudadano no la conoce) → cae en el servicio compartido (Atención al Ciudadano) vía
+`resolverAsignacionVu(db, null)`. `ConsultaForm` consulta por número (estado + términos + respuesta si la hay).
+**Refactor DRY:** se extrajo `src/lib/pqrsd.ts` `crearPqrsd(db, input)` (consecutivo atómico + término de ley +
+ruteo) usado por la acción admin y la pública — una sola fuente de verdad.
+
+**Transparencia (`/transparencia`):** las 12 categorías obligatorias como esquema de publicación; contenido por
+publicar (pendiente el modelo de micrositio en la BD del tenant).
+
+**Verificación:** `tsc --noEmit` y `eslint` limpios. Pendiente: verificación en vivo en Vercel (Claude in
+Chrome) — `demo.ossgovernmentone.lat/` muestra el portal del tenant (no la landing); radicar PQRSD pública →
+aparece en `/admin/vu`; `government-one.vercel.app/` sigue mostrando la landing de plataforma.
