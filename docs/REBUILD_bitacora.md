@@ -477,6 +477,20 @@ ruteo) usado por la acción admin y la pública — una sola fuente de verdad.
 **Transparencia (`/transparencia`):** las 12 categorías obligatorias como esquema de publicación; contenido por
 publicar (pendiente el modelo de micrositio en la BD del tenant).
 
-**Verificación:** `tsc --noEmit` y `eslint` limpios. Pendiente: verificación en vivo en Vercel (Claude in
-Chrome) — `demo.ossgovernmentone.lat/` muestra el portal del tenant (no la landing); radicar PQRSD pública →
-aparece en `/admin/vu`; `government-one.vercel.app/` sigue mostrando la landing de plataforma.
+**Verificación:** `tsc --noEmit` y `eslint` limpios.
+
+**✅ VERIFICADO EN VIVO en Vercel con Claude in Chrome (2026-07-21) — módulo base cerrado de punta a punta:**
+- Ramificación por host confirmada: `demo.ossgovernmentone.lat/` → **portal del tenant** ("Alcaldía Demo" +
+  directorio de las 7 dependencias del árbol + menú Transparencia); `government-one.vercel.app/` → **landing de
+  plataforma** ("Módulos de la plataforma"). Cero hardcode: el portal muestra los datos reales del tenant.
+- **PQRSD pública (sin sesión):** un ciudadano radicó desde `/pqrsd` → `PQRSD-2026-000003` (Queja, "Alumbrado
+  público dañado…", peticionario Pedro Ramírez). **Consulta pública** por número → estado "Recibida",
+  radicada 2026-07-21 / vence 2026-08-11.
+- **Cae en la Ventanilla Única del tenant:** al entrar a `/admin/vu`, la bandeja muestra la 000003 (canal WEB)
+  asignada a **Responsable de Ventanilla Única (sin ocupante)** por el ruteo a servicio compartido
+  (`resolverAsignacionVu(db, null)` → Atención al Ciudadano), estado RECIBIDA — junto a las 2 internas de
+  Paso C. Sin duplicados. **El diferenciador cierra el círculo ciudadano→entidad.**
+
+**🏁 MÓDULO BASE (Portal Institucional) COMPLETO:** A (estructura organizacional) · B (Gestión Documental) ·
+C (Ventanilla Única) · D (portal público) — los cuatro construidos, con la fundación de dominio cableada
+(capacidades por cargo + ruteo `quienEjerce`) y verificados en vivo en Vercel.
