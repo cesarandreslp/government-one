@@ -400,3 +400,27 @@ funciona end-to-end:**
   sin tocar la regla de ruteo — exactamente la promesa de la fundación de dominio (una persona = identidad,
   el trabajo va al cargo → a quien lo ejerce hoy). Ambas visibles en la bandeja con "asignada a" + cargo +
   dependencia + semáforo de término.
+
+## Progreso — Subdominio real del tenant demo (2026-07-21)
+
+El usuario pidió montar `*.ossgovernmentone.lat` **solo si no implicaba que él hiciera nada ni romper la prod
+vieja**. Hallazgo al inspeccionar Vercel (solo lectura): el **proyecto viejo `ossgovermentone` tiene atados el
+apex `ossgovernmentone.lat` + el wildcard `*.ossgovernmentone.lat`** y sigue vivo (sirve armenia/buga por el
+wildcard). Nameservers del dominio = Vercel (DNS gestionado por Vercel; no requiere tocar registrador).
+
+- **El wildcard NO se movió:** moverlo a government-one exige quitárselo al proyecto viejo primero, lo que
+  **rompería toda la prod vieja** (`<tenant>.ossgovernmentone.lat` dejaría de resolver). Acción destructiva/
+  hacia afuera → NO se hace sin decisión explícita de retirar la prod vieja.
+- **Sí se hizo (limpio, reversible, sin acción del usuario):** `vercel domains add demo.ossgovernmentone.lat`
+  → subdominio **específico** atado al proyecto `government-one`. Vercel resuelve el subdominio específico por
+  encima del wildcard del otro proyecto, así que **solo `demo.` va al proyecto nuevo**; apex/armenia/buga de la
+  prod vieja quedan intactos. El tenant demo ya tenía `dominioPrincipal = demo.ossgovernmentone.lat`, así que
+  resolvió sin tocar la BD. Se **removió el apunte temporal** `dominioPersonalizado = government-one.vercel.app`
+  (script `set-tenant-host.ts`) → estado correcto: `government-one.vercel.app` = solo plataforma (landing +
+  superadmin), `demo.ossgovernmentone.lat` = tenant.
+- **✅ Verificado:** `https://demo.ossgovernmentone.lat/ingresar` → 200, muestra "Alcaldía Demo · Acceso de
+  funcionarios", SSL automático (Claude in Chrome + curl).
+- **Pendiente (decisión del usuario, no bloqueante):** para que TODO tenant nuevo tenga subdominio automático
+  se necesita el **wildcard** en government-one → implica retirar/migrar la prod vieja `ossgovermentone` (que
+  hoy posee el wildcard). Mientras tanto, cada tenant nuevo se ata con un subdominio específico (una línea
+  `vercel domains add <slug>.ossgovernmentone.lat`), o se sigue verificando en el subdominio del demo.
