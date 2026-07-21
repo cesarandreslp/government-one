@@ -361,3 +361,177 @@ model Pqrsd {
   @@index([dependenciaId])
   @@map("pqrsd")
 }
+
+// ───────────────────── Módulo: CONTABILIDAD (libro mayor, doble partida) ─────────────────────
+// El plan de cuentas (CGC — Catálogo General de Cuentas, Res. CGN 533/2015 para entidades de
+// gobierno) es CATÁLOGO NACIONAL (primitivo de plataforma, como CCPET/Res.1519): se siembra por
+// tenant, editable. El motor es doble partida estricta: ∑débitos = ∑créditos por comprobante.
+
+enum Naturaleza {
+  DEBITO
+  CREDITO
+}
+
+enum TipoCuenta {
+  BALANCE // activo / pasivo / patrimonio
+  RESULTADO // ingreso / gasto
+  ORDEN // cuentas de orden / control
+}
+
+enum EstadoPeriodo {
+  ABIERTO
+  CERRADO
+  AJUSTE // solo administración puede registrar
+}
+
+enum TipoComprobante {
+  CONTABLE
+  EGRESO
+  INGRESO
+  AJUSTE
+  APERTURA
+  CIERRE
+}
+
+enum EstadoComprobante {
+  REGISTRADO
+  ANULADO
+}
+
+enum TipoDocumento {
+  NIT
+  CC
+  CE
+  PA
+  OTRO
+}
+
+/// Plan de cuentas (CGC), jerárquico. Solo las hojas (`permiteMovimientos`) reciben asientos.
+model PlanCuenta {
+  id                 String       @id @default(cuid())
+  codigo             String       @unique // ej. "1110", "111005"
+  nombre             String
+  nivel              Int // 1=clase 2=grupo 3=cuenta 4=subcuenta
+  naturaleza         Naturaleza
+  tipo               TipoCuenta
+  activa             Boolean      @default(true)
+  permiteMovimientos Boolean      @default(false)
+
+  parentId String?
+  parent   PlanCuenta?  @relation("CuentaJerarquia", fields: [parentId], references: [id])
+  hijos    PlanCuenta[] @relation("CuentaJerarquia")
+  asientos Asiento[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([nivel])
+  @@map("cp_plan_cuentas")
+}
+
+/// Periodo contable (mensual o anual). Los comprobantes se registran contra un periodo ABIERTO.
+model PeriodoContable {
+  id          String        @id @default(cuid())
+  codigo      String        @unique // "2026-05" o "2026"
+  anio        Int
+  mes         Int? // 1..12, null = anual
+  estado      EstadoPeriodo @default(ABIERTO)
+  fechaInicio DateTime
+  fechaFin    DateTime
+  cerradoEn   DateTime?
+  cerradoPor  String?
+
+  comprobantes Comprobante[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([anio, mes])
+  @@map("cp_periodos")
+}
+
+/// Tercero auxiliar (NIT/CC): proveedor, contratista, beneficiario. Registro compartido.
+model Tercero {
+  id            String        @id @default(cuid())
+  documento     String        @unique
+  tipoDocumento TipoDocumento @default(NIT)
+  razonSocial   String
+  email         String?
+  telefono      String?
+  activo        Boolean       @default(true)
+
+  asientos Asiento[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([razonSocial])
+  @@map("cp_terceros")
+}
+
+/// Contador atómico del consecutivo de comprobantes, por tipo y año.
+model ComprobanteConsecutivo {
+  id     String          @id @default(cuid())
+  tipo   TipoComprobante
+  anio   Int
+  ultimo Int             @default(0)
+
+  @@unique([tipo, anio])
+  @@map("cp_consecutivos")
+}
+
+/// Comprobante contable (encabezado). Agrupa N asientos que cuadran (∑D = ∑C).
+model Comprobante {
+  id           String            @id @default(cuid())
+  numero       String            @unique // "CC-2026-000123"
+  tipo         TipoComprobante   @default(CONTABLE)
+  fecha        DateTime
+  descripcion  String
+  estado       EstadoComprobante @default(REGISTRADO)
+  periodoId    String
+  periodo      PeriodoContable   @relation(fields: [periodoId], references: [id])
+  anio         Int
+  consecutivo  Int
+  totalDebito  Decimal           @db.Decimal(18, 2)
+  totalCredito Decimal           @db.Decimal(18, 2)
+
+  asientos Asiento[]
+
+  // Trazabilidad cruzada (presupuesto/nómina/… postean aquí).
+  fuenteModulo    String?
+  fuenteRef       String?
+  creadoPor       String?
+  anuladoEn       DateTime?
+  anuladoPor      String?
+  motivoAnulacion String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([periodoId])
+  @@index([fecha])
+  @@index([fuenteModulo, fuenteRef])
+  @@map("cp_comprobantes")
+}
+
+/// Asiento (línea de débito o crédito de un comprobante).
+model Asiento {
+  id            String      @id @default(cuid())
+  comprobanteId String
+  comprobante   Comprobante @relation(fields: [comprobanteId], references: [id], onDelete: Cascade)
+  cuentaId      String
+  cuenta        PlanCuenta  @relation(fields: [cuentaId], references: [id])
+  terceroId     String?
+  tercero       Tercero?    @relation(fields: [terceroId], references: [id])
+  debito        Decimal     @default(0) @db.Decimal(18, 2)
+  credito       Decimal     @default(0) @db.Decimal(18, 2)
+  descripcion   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([comprobanteId])
+  @@index([cuentaId])
+  @@index([terceroId])
+  @@map("cp_asientos")
+}

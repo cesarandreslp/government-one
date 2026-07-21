@@ -28,6 +28,9 @@ export default async function AdminTenantLayout({ children }: { children: React.
               <Link href="/admin/vu" className="text-slate-600 hover:text-slate-900">
                 Ventanilla Única
               </Link>
+              <Link href="/admin/contabilidad" className="text-slate-600 hover:text-slate-900">
+                Contabilidad
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-4">

@@ -31,6 +31,24 @@ CREATE TYPE "PqrsdCanal" AS ENUM ('WEB', 'PRESENCIAL', 'TELEFONICO', 'EMAIL', 'E
 -- CreateEnum
 CREATE TYPE "PqrsdEstado" AS ENUM ('RECIBIDA', 'ASIGNADA', 'EN_TRAMITE', 'RESPONDIDA', 'CERRADA');
 
+-- CreateEnum
+CREATE TYPE "Naturaleza" AS ENUM ('DEBITO', 'CREDITO');
+
+-- CreateEnum
+CREATE TYPE "TipoCuenta" AS ENUM ('BALANCE', 'RESULTADO', 'ORDEN');
+
+-- CreateEnum
+CREATE TYPE "EstadoPeriodo" AS ENUM ('ABIERTO', 'CERRADO', 'AJUSTE');
+
+-- CreateEnum
+CREATE TYPE "TipoComprobante" AS ENUM ('CONTABLE', 'EGRESO', 'INGRESO', 'AJUSTE', 'APERTURA', 'CIERRE');
+
+-- CreateEnum
+CREATE TYPE "EstadoComprobante" AS ENUM ('REGISTRADO', 'ANULADO');
+
+-- CreateEnum
+CREATE TYPE "TipoDocumento" AS ENUM ('NIT', 'CC', 'CE', 'PA', 'OTRO');
+
 -- CreateTable
 CREATE TABLE "dependencias" (
     "id" TEXT NOT NULL,
@@ -210,6 +228,104 @@ CREATE TABLE "pqrsd" (
     CONSTRAINT "pqrsd_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "cp_plan_cuentas" (
+    "id" TEXT NOT NULL,
+    "codigo" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "nivel" INTEGER NOT NULL,
+    "naturaleza" "Naturaleza" NOT NULL,
+    "tipo" "TipoCuenta" NOT NULL,
+    "activa" BOOLEAN NOT NULL DEFAULT true,
+    "permiteMovimientos" BOOLEAN NOT NULL DEFAULT false,
+    "parentId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cp_plan_cuentas_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cp_periodos" (
+    "id" TEXT NOT NULL,
+    "codigo" TEXT NOT NULL,
+    "anio" INTEGER NOT NULL,
+    "mes" INTEGER,
+    "estado" "EstadoPeriodo" NOT NULL DEFAULT 'ABIERTO',
+    "fechaInicio" TIMESTAMP(3) NOT NULL,
+    "fechaFin" TIMESTAMP(3) NOT NULL,
+    "cerradoEn" TIMESTAMP(3),
+    "cerradoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cp_periodos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cp_terceros" (
+    "id" TEXT NOT NULL,
+    "documento" TEXT NOT NULL,
+    "tipoDocumento" "TipoDocumento" NOT NULL DEFAULT 'NIT',
+    "razonSocial" TEXT NOT NULL,
+    "email" TEXT,
+    "telefono" TEXT,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cp_terceros_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cp_consecutivos" (
+    "id" TEXT NOT NULL,
+    "tipo" "TipoComprobante" NOT NULL,
+    "anio" INTEGER NOT NULL,
+    "ultimo" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "cp_consecutivos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cp_comprobantes" (
+    "id" TEXT NOT NULL,
+    "numero" TEXT NOT NULL,
+    "tipo" "TipoComprobante" NOT NULL DEFAULT 'CONTABLE',
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "descripcion" TEXT NOT NULL,
+    "estado" "EstadoComprobante" NOT NULL DEFAULT 'REGISTRADO',
+    "periodoId" TEXT NOT NULL,
+    "anio" INTEGER NOT NULL,
+    "consecutivo" INTEGER NOT NULL,
+    "totalDebito" DECIMAL(18,2) NOT NULL,
+    "totalCredito" DECIMAL(18,2) NOT NULL,
+    "fuenteModulo" TEXT,
+    "fuenteRef" TEXT,
+    "creadoPor" TEXT,
+    "anuladoEn" TIMESTAMP(3),
+    "anuladoPor" TEXT,
+    "motivoAnulacion" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cp_comprobantes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cp_asientos" (
+    "id" TEXT NOT NULL,
+    "comprobanteId" TEXT NOT NULL,
+    "cuentaId" TEXT NOT NULL,
+    "terceroId" TEXT,
+    "debito" DECIMAL(18,2) NOT NULL DEFAULT 0,
+    "credito" DECIMAL(18,2) NOT NULL DEFAULT 0,
+    "descripcion" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "cp_asientos_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "dependencias_codigo_key" ON "dependencias"("codigo");
 
@@ -276,6 +392,51 @@ CREATE INDEX "pqrsd_usuarioAsignadoId_idx" ON "pqrsd"("usuarioAsignadoId");
 -- CreateIndex
 CREATE INDEX "pqrsd_dependenciaId_idx" ON "pqrsd"("dependenciaId");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "cp_plan_cuentas_codigo_key" ON "cp_plan_cuentas"("codigo");
+
+-- CreateIndex
+CREATE INDEX "cp_plan_cuentas_parentId_idx" ON "cp_plan_cuentas"("parentId");
+
+-- CreateIndex
+CREATE INDEX "cp_plan_cuentas_nivel_idx" ON "cp_plan_cuentas"("nivel");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cp_periodos_codigo_key" ON "cp_periodos"("codigo");
+
+-- CreateIndex
+CREATE INDEX "cp_periodos_anio_mes_idx" ON "cp_periodos"("anio", "mes");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cp_terceros_documento_key" ON "cp_terceros"("documento");
+
+-- CreateIndex
+CREATE INDEX "cp_terceros_razonSocial_idx" ON "cp_terceros"("razonSocial");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cp_consecutivos_tipo_anio_key" ON "cp_consecutivos"("tipo", "anio");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cp_comprobantes_numero_key" ON "cp_comprobantes"("numero");
+
+-- CreateIndex
+CREATE INDEX "cp_comprobantes_periodoId_idx" ON "cp_comprobantes"("periodoId");
+
+-- CreateIndex
+CREATE INDEX "cp_comprobantes_fecha_idx" ON "cp_comprobantes"("fecha");
+
+-- CreateIndex
+CREATE INDEX "cp_comprobantes_fuenteModulo_fuenteRef_idx" ON "cp_comprobantes"("fuenteModulo", "fuenteRef");
+
+-- CreateIndex
+CREATE INDEX "cp_asientos_comprobanteId_idx" ON "cp_asientos"("comprobanteId");
+
+-- CreateIndex
+CREATE INDEX "cp_asientos_cuentaId_idx" ON "cp_asientos"("cuentaId");
+
+-- CreateIndex
+CREATE INDEX "cp_asientos_terceroId_idx" ON "cp_asientos"("terceroId");
+
 -- AddForeignKey
 ALTER TABLE "dependencias" ADD CONSTRAINT "dependencias_padreId_fkey" FOREIGN KEY ("padreId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -320,4 +481,19 @@ ALTER TABLE "pqrsd" ADD CONSTRAINT "pqrsd_usuarioAsignadoId_fkey" FOREIGN KEY ("
 
 -- AddForeignKey
 ALTER TABLE "pqrsd" ADD CONSTRAINT "pqrsd_respondidoPorId_fkey" FOREIGN KEY ("respondidoPorId") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cp_plan_cuentas" ADD CONSTRAINT "cp_plan_cuentas_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "cp_plan_cuentas"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cp_comprobantes" ADD CONSTRAINT "cp_comprobantes_periodoId_fkey" FOREIGN KEY ("periodoId") REFERENCES "cp_periodos"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cp_asientos" ADD CONSTRAINT "cp_asientos_comprobanteId_fkey" FOREIGN KEY ("comprobanteId") REFERENCES "cp_comprobantes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cp_asientos" ADD CONSTRAINT "cp_asientos_cuentaId_fkey" FOREIGN KEY ("cuentaId") REFERENCES "cp_plan_cuentas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cp_asientos" ADD CONSTRAINT "cp_asientos_terceroId_fkey" FOREIGN KEY ("terceroId") REFERENCES "cp_terceros"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 

@@ -9,6 +9,7 @@
 export const CAPACIDADES_POR_MODULO = {
   gestion_documental: ["radicar", "archivar", "consultar", "administrar_trd"],
   ventanilla_unica: ["radicar", "asignar", "responder", "supervisar"],
+  contabilidad: ["consultar", "registrar", "administrar", "cerrar_periodo"],
   contratacion: ["elaborar", "revisar_juridica", "concepto_juridico", "supervisar", "aprobar"],
   presupuesto: ["expedir_cdp", "expedir_rp", "aprobar"],
 } as const
