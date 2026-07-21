@@ -97,6 +97,9 @@ model Usuario {
   apellido String
   rol      RolUsuario @default(USER)
   activo   Boolean    @default(true)
+  /// Hash bcrypt de la contraseña del funcionario. Null = sin acceso (aún no se le fijó clave).
+  /// Nunca se expone al cliente; la verificación compara en el servidor (ver tenant-auth.ts).
+  passwordHash String?
 
   vinculaciones VinculacionCargo[]
   ausencias     Ausencia[]

@@ -50,6 +50,7 @@ CREATE TABLE "usuarios" (
     "apellido" TEXT NOT NULL,
     "rol" "RolUsuario" NOT NULL DEFAULT 'USER',
     "activo" BOOLEAN NOT NULL DEFAULT true,
+    "passwordHash" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 

@@ -247,3 +247,53 @@ entrar en el deploy — una vez se quite el SSO de Vercel (paso 3 del plan).
 > **Estado:** fundación **completa** (plano de control + dominio, ambos con código y verificados en vivo) +
 > plataforma pública (landing/CMS/auth). **Siguiente: MÓDULO BASE — Portal Institucional** (Portal + Gestión
 > Documental + Ventanilla Única + estructura organizacional). Al cablear VU, resolver ruteo con `quienEjerce`.
+
+## Progreso — Módulo Base, Paso A: estructura organizacional del tenant (2026-07-21)
+
+Arranca el módulo base por el Paso A del `PLAN_modulo_portal.md`. **Decisión del usuario:** construir primero
+la superficie **tenant-facing real** (con su propio auth de funcionario) y después la vista bajo Superadmin.
+Todo en 3 bricks, cada uno espejando los patrones ya probados de la plataforma (Next 16 + Prisma 7).
+
+**Brick 1 — credenciales + primitivas de sesión del tenant:**
+- `Usuario.passwordHash String?` (tenant schema). `provision-schema.sql` regenerado (⚠️ Prisma 7 cambió el
+  flag: `migrate diff --to-schema`, ya no `--to-schema-datamodel`). Columna aplicada al tenant demo con
+  `scripts/migrate-usuario-passwordhash.ts` (idempotente, `ADD COLUMN IF NOT EXISTS`, recorre tenants ACTIVO
+  desde la meta-DB — patrón interino hasta el orquestador fan-out).
+- `src/lib/tenant-session.ts` (JWT jose atado a `tenantId`+`usuarioId`, cookie propia `g1t_session`),
+  `tenant-session-cookies.ts`, `tenant-auth.ts` (`verificarCredencialesTenant` bcrypt contra la BD del tenant,
+  con comparación señuelo). Espejo del auth de plataforma pero por-tenant.
+- `scripts/seed-usuario-tenant.ts` — bootstrap del primer funcionario admin del tenant (credenciales por env,
+  nunca en código; el usuario las maneja, como el superadmin).
+
+**Brick 2 — contexto de tenant por host + ruteo + login:**
+- `src/lib/contexto-tenant.ts` — `contextoTenant()` resuelve el tenant por `Host` (headers) → `{tenant, db}`,
+  cacheado por render. **Override de DEV** (`DEV_TENANT_SLUG`, solo en localhost/no-producción) para trabajar
+  local; en producción SIEMPRE por host.
+- `src/lib/dal-tenant.ts` — `requerirFuncionario()` (exige sesión válida para el tenant del host; valida
+  `sesion.tenantId === tenant.id`, defensa en profundidad) + `requerirRolTenant([...])` (rol identidad).
+- Login del funcionario en `/ingresar` (page + form `useActionState` + `actions.ts`); tenant admin en
+  `/admin/*` con su `layout.tsx` (shell + cerradura). `proxy.ts` ampliado: gatea `/admin/*`→`/ingresar` y
+  `/ingresar`→`/admin/estructura`, conservando el gate de plataforma (`/superadmin`,`/login`). Cookies distintas
+  por superficie (`g1_session` plataforma / `g1t_session` tenant), host-scoped → aislamiento entre tenants.
+
+**Brick 3 — `/admin/estructura`:**
+- `page.tsx` (server): árbol de dependencias + cargos (con grants y **quién ejerce** cada cargo vía
+  `quienEjerce`), y tabla de funcionarios con sus **capacidades efectivas** (`capacidadesEfectivas`) — cablea
+  la fundación de dominio de punta a punta en UI.
+- `actions.ts` (server, gateadas por rol identidad ADMIN/SUPER_ADMIN del tenant): **sembrar estructura**
+  (`aplicarPlantilla` por tipo de entidad, idempotente), crear dependencia, crear cargo, crear funcionario,
+  crear vínculo persona↔cargo. `estructura-acciones.tsx` (client) con los formularios.
+- Cierra el hueco "aplicarPlantilla existe pero no está cableado": ahora se dispara desde la UI (botón),
+  no en `provision.ts` (evita el timeout de Vercel Hobby; el cableado async al provisionar queda para cuando
+  exista el provisioning asíncrono).
+
+**Verificación (contra la URL de Vercel, no local — preferencia del usuario):** `tsc --noEmit` y `eslint`
+limpios (el único error de lint es preexistente en `scripts/verify-auth.ts`). Para verificar la superficie
+tenant-facing en el deploy sin subdominios reales todavía, se apuntó **temporalmente** el
+`dominioPersonalizado` del tenant demo a `government-one.vercel.app` (`scripts/set-tenant-host.ts`, reversible)
+→ en esa URL, `/ingresar` y `/admin/*` resuelven al tenant demo (landing y `/superadmin` intactas). Funcionario
+admin de prueba sembrado en el tenant demo para la verificación. **Pendiente:** verificación visual en vivo tras
+el deploy; revertir el dominioPersonalizado del demo; config real de subdominios `*.ossgovernmentone.lat`.
+
+**Siguiente:** cerrada la verificación → Paso B (Gestión Documental: TRD + radicación), luego C (Ventanilla
+Única con ruteo por `quienEjerce`) y D (portal público). Y la vista de estructura bajo Superadmin (opción 1).
