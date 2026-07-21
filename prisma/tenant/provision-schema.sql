@@ -22,6 +22,15 @@ CREATE TYPE "GdEstadoRadicado" AS ENUM ('RADICADO', 'EN_TRAMITE', 'RESPONDIDO', 
 -- CreateEnum
 CREATE TYPE "GdDisposicion" AS ENUM ('CONSERVACION_TOTAL', 'ELIMINACION', 'SELECCION', 'DIGITALIZACION');
 
+-- CreateEnum
+CREATE TYPE "PqrsdTipo" AS ENUM ('PETICION', 'QUEJA', 'RECLAMO', 'SUGERENCIA', 'DENUNCIA');
+
+-- CreateEnum
+CREATE TYPE "PqrsdCanal" AS ENUM ('WEB', 'PRESENCIAL', 'TELEFONICO', 'EMAIL', 'ESCRITO');
+
+-- CreateEnum
+CREATE TYPE "PqrsdEstado" AS ENUM ('RECIBIDA', 'ASIGNADA', 'EN_TRAMITE', 'RESPONDIDA', 'CERRADA');
+
 -- CreateTable
 CREATE TABLE "dependencias" (
     "id" TEXT NOT NULL,
@@ -163,6 +172,44 @@ CREATE TABLE "gd_adjuntos" (
     CONSTRAINT "gd_adjuntos_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "pqrsd_consecutivos" (
+    "id" TEXT NOT NULL,
+    "anio" INTEGER NOT NULL,
+    "ultimo" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "pqrsd_consecutivos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "pqrsd" (
+    "id" TEXT NOT NULL,
+    "numero" TEXT NOT NULL,
+    "anio" INTEGER NOT NULL,
+    "consecutivo" INTEGER NOT NULL,
+    "tipo" "PqrsdTipo" NOT NULL,
+    "canal" "PqrsdCanal" NOT NULL DEFAULT 'PRESENCIAL',
+    "estado" "PqrsdEstado" NOT NULL DEFAULT 'RECIBIDA',
+    "peticionarioNombre" TEXT NOT NULL,
+    "peticionarioEmail" TEXT,
+    "peticionarioTelefono" TEXT,
+    "asunto" TEXT NOT NULL,
+    "descripcion" TEXT NOT NULL,
+    "dependenciaId" TEXT,
+    "cargoAsignadoId" TEXT,
+    "usuarioAsignadoId" TEXT,
+    "fechaRecepcion" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "diasTermino" INTEGER NOT NULL,
+    "fechaVencimiento" TIMESTAMP(3) NOT NULL,
+    "respuesta" TEXT,
+    "fechaRespuesta" TIMESTAMP(3),
+    "respondidoPorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "pqrsd_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "dependencias_codigo_key" ON "dependencias"("codigo");
 
@@ -214,6 +261,21 @@ CREATE INDEX "radicados_estado_idx" ON "radicados"("estado");
 -- CreateIndex
 CREATE INDEX "gd_adjuntos_radicadoId_idx" ON "gd_adjuntos"("radicadoId");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "pqrsd_consecutivos_anio_key" ON "pqrsd_consecutivos"("anio");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "pqrsd_numero_key" ON "pqrsd"("numero");
+
+-- CreateIndex
+CREATE INDEX "pqrsd_estado_idx" ON "pqrsd"("estado");
+
+-- CreateIndex
+CREATE INDEX "pqrsd_usuarioAsignadoId_idx" ON "pqrsd"("usuarioAsignadoId");
+
+-- CreateIndex
+CREATE INDEX "pqrsd_dependenciaId_idx" ON "pqrsd"("dependenciaId");
+
 -- AddForeignKey
 ALTER TABLE "dependencias" ADD CONSTRAINT "dependencias_padreId_fkey" FOREIGN KEY ("padreId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -246,4 +308,16 @@ ALTER TABLE "radicados" ADD CONSTRAINT "radicados_radicadoPorId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "gd_adjuntos" ADD CONSTRAINT "gd_adjuntos_radicadoId_fkey" FOREIGN KEY ("radicadoId") REFERENCES "radicados"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pqrsd" ADD CONSTRAINT "pqrsd_dependenciaId_fkey" FOREIGN KEY ("dependenciaId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pqrsd" ADD CONSTRAINT "pqrsd_cargoAsignadoId_fkey" FOREIGN KEY ("cargoAsignadoId") REFERENCES "cargos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pqrsd" ADD CONSTRAINT "pqrsd_usuarioAsignadoId_fkey" FOREIGN KEY ("usuarioAsignadoId") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pqrsd" ADD CONSTRAINT "pqrsd_respondidoPorId_fkey" FOREIGN KEY ("respondidoPorId") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 

@@ -61,6 +61,7 @@ model Dependencia {
   cargos    Cargo[]
   gdSeries  GdSerie[]
   radicados Radicado[]
+  pqrsds    Pqrsd[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -83,6 +84,7 @@ model Cargo {
   activo        Boolean     @default(true)
 
   vinculaciones VinculacionCargo[]
+  pqrsds        Pqrsd[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -103,9 +105,11 @@ model Usuario {
   /// Nunca se expone al cliente; la verificación compara en el servidor (ver tenant-auth.ts).
   passwordHash String?
 
-  vinculaciones VinculacionCargo[]
-  ausencias     Ausencia[]
-  radicados     Radicado[]
+  vinculaciones    VinculacionCargo[]
+  ausencias        Ausencia[]
+  radicados        Radicado[]
+  pqrsdAsignadas   Pqrsd[]            @relation("PqrsdAsignada")
+  pqrsdRespondidas Pqrsd[]            @relation("PqrsdRespondida")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -273,4 +277,87 @@ model GdAdjunto {
 
   @@index([radicadoId])
   @@map("gd_adjuntos")
+}
+
+// ───────────────────── Módulo base: VENTANILLA ÚNICA (PQRSD) ─────────────────────
+// La PQRSD entra y se asigna AUTOMÁTICAMENTE al funcionario que EJERCE el cargo competente
+// (fundación de dominio: quienEjerce → encargado/titular sin ausencia → fallback). El acceso a
+// las acciones es por CAPACIDAD ventanilla_unica (no por rol). Numeración por tenant/año.
+
+enum PqrsdTipo {
+  PETICION
+  QUEJA
+  RECLAMO
+  SUGERENCIA
+  DENUNCIA
+}
+
+enum PqrsdCanal {
+  WEB
+  PRESENCIAL
+  TELEFONICO
+  EMAIL
+  ESCRITO
+}
+
+enum PqrsdEstado {
+  RECIBIDA // sin asignar (nadie ejerce el cargo competente)
+  ASIGNADA // asignada al funcionario que ejerce el cargo
+  EN_TRAMITE
+  RESPONDIDA
+  CERRADA
+}
+
+/// Contador atómico del consecutivo de PQRSD, por año (numeración por tenant).
+model PqrsdConsecutivo {
+  id     String @id @default(cuid())
+  anio   Int    @unique
+  ultimo Int    @default(0)
+
+  @@map("pqrsd_consecutivos")
+}
+
+/// Petición/Queja/Reclamo/Sugerencia/Denuncia ciudadana, con ruteo por cargo y término de ley.
+model Pqrsd {
+  id          String      @id @default(cuid())
+  numero      String      @unique // ej. PQRSD-2026-000001
+  anio        Int
+  consecutivo Int
+  tipo        PqrsdTipo
+  canal       PqrsdCanal  @default(PRESENCIAL)
+  estado      PqrsdEstado @default(RECIBIDA)
+
+  // Peticionario (ciudadano)
+  peticionarioNombre   String
+  peticionarioEmail    String?
+  peticionarioTelefono String?
+  asunto               String
+  descripcion          String
+
+  // Ruteo por cargo (fundación de dominio): dependencia competente → cargo → quien lo ejerce hoy.
+  dependenciaId     String?
+  dependencia       Dependencia? @relation(fields: [dependenciaId], references: [id])
+  cargoAsignadoId   String?
+  cargoAsignado     Cargo?       @relation(fields: [cargoAsignadoId], references: [id])
+  usuarioAsignadoId String?
+  usuarioAsignado   Usuario?     @relation("PqrsdAsignada", fields: [usuarioAsignadoId], references: [id])
+
+  // Términos de ley (días hábiles).
+  fechaRecepcion   DateTime @default(now())
+  diasTermino      Int
+  fechaVencimiento DateTime
+
+  // Respuesta
+  respuesta       String?
+  fechaRespuesta  DateTime?
+  respondidoPorId String?
+  respondidoPor   Usuario?  @relation("PqrsdRespondida", fields: [respondidoPorId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([estado])
+  @@index([usuarioAsignadoId])
+  @@index([dependenciaId])
+  @@map("pqrsd")
 }

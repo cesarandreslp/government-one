@@ -357,3 +357,36 @@ en el nav del admin del tenant.
   e independiente por (tipo, año)**: Entrada avanzó 000001→000002, Salida arrancó su propia serie en 000001.
 - Los 3 aparecen en la **bandeja** con número/tipo/asunto/tercero/dependencia/estado (RADICADO); KPIs por
   estado correctos. Todo con el funcionario admin del tenant demo, en la URL de Vercel (no local).
+
+## Progreso — Módulo Base, Paso C: Ventanilla Única (PQRSD con ruteo por cargo) (2026-07-21)
+
+El **diferenciador**: la PQRSD entra y se **asigna automáticamente al funcionario que EJERCE el cargo
+competente** — aquí la fundación de dominio (`quienEjerce`) deja de ser teoría y rutea trabajo real.
+
+**Modelo (tenant schema, aditivo):** `Pqrsd` (`numero` único, `PqrsdTipo` P/Q/R/S/D, `PqrsdCanal`,
+`PqrsdEstado` RECIBIDA/ASIGNADA/EN_TRAMITE/RESPONDIDA/CERRADA, peticionario, `dependenciaId`+`cargoAsignadoId`+
+`usuarioAsignadoId`, términos de ley `diasTermino`/`fechaVencimiento`, respuesta) + `PqrsdConsecutivo` (atómico
+por año, `PQRSD-AAAA-000001`). Back-relations en Dependencia/Cargo/Usuario. `provision-schema.sql` → 12 tablas;
+delta aplicado al tenant demo con `migrate-tenants-diff.ts`.
+
+**Ruteo por cargo — `src/lib/vu-ruteo.ts` (`resolverAsignacionVu`):** dada la dependencia competente, busca el
+cargo con capacidad `ventanilla_unica:responder` (jefatura primero) y resuelve al ocupante con **`quienEjerce`**
+(encargado→titular sin ausencia→…); fallbacks: **cabeza de la dependencia** → **dependencia de servicio
+compartido** con capacidad VU (Atención al Ciudadano). Si nadie ejerce el cargo, la PQRSD queda RECIBIDA
+asignada al cargo (sin ocupante). **La clave:** si el titular se ausenta y hay encargado, la siguiente PQRSD se
+asigna al encargado sin tocar la regla de ruteo — la fundación de dominio hace el trabajo.
+
+**Términos de ley — `src/lib/dias-habiles.ts`:** `sumarDiasHabiles`/`diasHabilesRestantes` (excluye fines de
+semana; **festivos colombianos pendientes** — catálogo nacional a incorporar como CCPET/CGC). Semáforo en la
+bandeja (verde/amarillo/rojo por días hábiles restantes; rojo = vencida).
+
+**UI (`/admin/vu`):** KPIs (sin asignar / asignadas / respondidas / **vencidas**), **bandeja** con "asignada a"
+(funcionario + cargo + dependencia) y semáforo de término; `vu-acciones.tsx` (client) — **Radicar PQRSD**
+(tipo/canal/peticionario/asunto/descripción + dependencia competente que auto-rutea) y **Responder PQRSD**;
+gateadas por capacidad `ventanilla_unica` (radicar/responder) vía `funcionarioPuede`. Ítem "Ventanilla Única"
+en el nav. IA de clasificación (fase 2) omitida — el ruteo por reglas + cargo funciona sin IA (y cuando entre,
+key IA POR-TENANT → [[regla-oro-credenciales-por-tenant]]).
+
+**Verificación:** `tsc --noEmit` y `eslint` limpios. Pendiente: verificación en vivo en Vercel (Claude in
+Chrome) — radicar PQRSD a Planeación → se asigna a quien ejerce; añadir un ENCARGADO al cargo → la siguiente
+va al encargado (demostración de `quienEjerce` end-to-end).
