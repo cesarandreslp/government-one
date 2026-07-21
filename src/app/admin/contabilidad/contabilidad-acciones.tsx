@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useState } from "react"
+import { useActionState, useEffect, useState } from "react"
 import {
   sembrarPlanCuentasAction,
   crearPeriodoAction,
@@ -15,6 +15,7 @@ interface Opcion {
 }
 
 interface CuentaOpcion extends Opcion {
+  codigo: string
   naturaleza: string
 }
 
@@ -44,6 +45,20 @@ function lineaVacia(): Linea {
   return { cuentaId: "", terceroId: "", debito: "", credito: "", descripcion: "" }
 }
 
+// Agrupa el selector de cuentas por clase (1er dígito del código CGC) para que sea más fácil
+// encontrar la cuenta correcta — es una vista de la misma data sembrada, no un catálogo nuevo.
+const CLASE_NOMBRE: Record<string, string> = { "1": "Activos", "2": "Pasivos", "3": "Patrimonio", "4": "Ingresos", "5": "Gastos" }
+
+function agruparPorClase(cuentas: CuentaOpcion[]): Map<string, CuentaOpcion[]> {
+  const grupos = new Map<string, CuentaOpcion[]>()
+  for (const c of cuentas) {
+    const clase = CLASE_NOMBRE[c.codigo[0]] ?? "Otras"
+    if (!grupos.has(clase)) grupos.set(clase, [])
+    grupos.get(clase)!.push(c)
+  }
+  return grupos
+}
+
 function Mensaje({ state }: { state: CpState }) {
   if (state.error) return <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{state.error}</p>
   if (state.ok) return <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">✅ {state.mensaje}</p>
@@ -70,6 +85,18 @@ export function ContabilidadAcciones({ puedeAdministrar, puedeRegistrar, planCue
   const [descripcion, setDescripcion] = useState("")
   const [periodoId, setPeriodoId] = useState("")
   const [lineas, setLineas] = useState<Linea[]>([lineaVacia(), lineaVacia()])
+
+  useEffect(() => {
+    if (!compState.ok) return
+    setTipo("CONTABLE")
+    setFecha("")
+    setDescripcion("")
+    setPeriodoId("")
+    setLineas([lineaVacia(), lineaVacia()])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compState])
+
+  const cuentasPorClase = agruparPorClase(cuentas)
 
   const totalDebito = lineas.reduce((s, l) => s + (Number(l.debito) || 0), 0)
   const totalCredito = lineas.reduce((s, l) => s + (Number(l.credito) || 0), 0)
@@ -198,8 +225,12 @@ export function ContabilidadAcciones({ puedeAdministrar, puedeRegistrar, planCue
                         <td className="px-2 py-1.5">
                           <select value={l.cuentaId} onChange={(e) => actualizarLinea(i, "cuentaId", e.target.value)} className={INPUT}>
                             <option value="">— Cuenta —</option>
-                            {cuentas.map((c) => (
-                              <option key={c.id} value={c.id}>{c.etiqueta}</option>
+                            {[...cuentasPorClase.entries()].map(([clase, opciones]) => (
+                              <optgroup key={clase} label={clase}>
+                                {opciones.map((c) => (
+                                  <option key={c.id} value={c.id}>{c.etiqueta}</option>
+                                ))}
+                              </optgroup>
                             ))}
                           </select>
                         </td>

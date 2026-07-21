@@ -71,7 +71,7 @@ export default async function ContabilidadPage() {
         puedeAdministrar={puedeAdministrar}
         puedeRegistrar={puedeRegistrar}
         planCuentasVacio={cuentas.length === 0}
-        cuentas={cuentasHoja.map((c) => ({ id: c.id, etiqueta: `${c.codigo} · ${c.nombre}`, naturaleza: c.naturaleza }))}
+        cuentas={cuentasHoja.map((c) => ({ id: c.id, codigo: c.codigo, etiqueta: `${c.codigo} · ${c.nombre}`, naturaleza: c.naturaleza }))}
         periodos={periodos
           .filter((p) => p.estado !== "CERRADO")
           .map((p) => ({ id: p.id, etiqueta: `${p.codigo} (${p.estado})` }))}
