@@ -535,3 +535,99 @@ model Asiento {
   @@index([terceroId])
   @@map("cp_asientos")
 }
+
+// ───────────────────── Módulo: PRESUPUESTO (CDP → RP → Obligación → Pago) ─────────────────────
+// El catálogo de clasificación (CCPET — Catálogo de Clasificación Presupuestal para Entidades
+// Territoriales, MinHacienda) es CATÁLOGO NACIONAL (primitivo de plataforma, paralelo al CGC de
+// Contabilidad — clasifica EN QUÉ se gasta/de dónde viene el ingreso, no el libro mayor). Este
+// primer corte cubre Rubro + Apropiación (vigencia) + CDP (Certificado de Disponibilidad
+// Presupuestal) con validación de saldo disponible; RP/Obligación/Pago quedan para el siguiente
+// incremento del mismo módulo.
+
+enum RubroTipo {
+  INGRESO
+  GASTO
+}
+
+enum EstadoDocPresupuestal {
+  VIGENTE
+  ANULADO
+}
+
+/// Rubro presupuestal (CCPET), jerárquico. Solo las hojas (`permiteMovimientos`) reciben CDP.
+model RubroPresupuestal {
+  id                 String    @id @default(cuid())
+  codigo             String    @unique // ej. "2.3.1.01.01" (CCPET, hasta 10 niveles)
+  nombre             String
+  tipo               RubroTipo
+  nivel              Int
+  permiteMovimientos Boolean   @default(false)
+  activo             Boolean   @default(true)
+
+  parentId String?
+  parent   RubroPresupuestal?  @relation("RubroJerarquia", fields: [parentId], references: [id])
+  hijos    RubroPresupuestal[] @relation("RubroJerarquia")
+
+  apropiaciones Apropiacion[]
+  cdps          Cdp[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([tipo])
+  @@map("psp_rubros")
+}
+
+/// Apropiación presupuestal de un rubro de GASTO para una vigencia (año fiscal). El disponible
+/// se calcula al vuelo: (inicial + adiciones - reducciones) - Σ CDP vigentes del rubro/vigencia.
+model Apropiacion {
+  id                 String            @id @default(cuid())
+  rubroId            String
+  rubro              RubroPresupuestal @relation(fields: [rubroId], references: [id])
+  vigencia           Int
+  apropiacionInicial Decimal           @db.Decimal(18, 2)
+  adiciones          Decimal           @default(0) @db.Decimal(18, 2)
+  reducciones        Decimal           @default(0) @db.Decimal(18, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([rubroId, vigencia])
+  @@map("psp_apropiaciones")
+}
+
+/// Contador atómico del consecutivo de CDP, por vigencia.
+model CdpConsecutivo {
+  id       String @id @default(cuid())
+  vigencia Int    @unique
+  ultimo   Int    @default(0)
+
+  @@map("psp_cdp_consecutivos")
+}
+
+/// CDP (Certificado de Disponibilidad Presupuestal) — reserva presupuestal previa a comprometer
+/// el gasto. Valida `valor ≤ disponible` de la apropiación del rubro/vigencia al crearse.
+model Cdp {
+  id       String                @id @default(cuid())
+  numero   String                @unique // "CDP-2026-000123"
+  fecha    DateTime
+  vigencia Int
+  rubroId  String
+  rubro    RubroPresupuestal     @relation(fields: [rubroId], references: [id])
+  valor    Decimal               @db.Decimal(18, 2)
+  objeto   String
+  estado   EstadoDocPresupuestal @default(VIGENTE)
+
+  creadoPor       String?
+  anuladoEn       DateTime?
+  anuladoPor      String?
+  motivoAnulacion String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([rubroId, vigencia])
+  @@index([vigencia])
+  @@map("psp_cdps")
+}

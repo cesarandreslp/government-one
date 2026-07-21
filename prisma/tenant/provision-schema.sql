@@ -1,3 +1,5 @@
+Loaded Prisma config from prisma.config.ts.
+
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
@@ -48,6 +50,12 @@ CREATE TYPE "EstadoComprobante" AS ENUM ('REGISTRADO', 'ANULADO');
 
 -- CreateEnum
 CREATE TYPE "TipoDocumento" AS ENUM ('NIT', 'CC', 'CE', 'PA', 'OTRO');
+
+-- CreateEnum
+CREATE TYPE "RubroTipo" AS ENUM ('INGRESO', 'GASTO');
+
+-- CreateEnum
+CREATE TYPE "EstadoDocPresupuestal" AS ENUM ('VIGENTE', 'ANULADO');
 
 -- CreateTable
 CREATE TABLE "dependencias" (
@@ -326,6 +334,65 @@ CREATE TABLE "cp_asientos" (
     CONSTRAINT "cp_asientos_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "psp_rubros" (
+    "id" TEXT NOT NULL,
+    "codigo" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "tipo" "RubroTipo" NOT NULL,
+    "nivel" INTEGER NOT NULL,
+    "permiteMovimientos" BOOLEAN NOT NULL DEFAULT false,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "parentId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "psp_rubros_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "psp_apropiaciones" (
+    "id" TEXT NOT NULL,
+    "rubroId" TEXT NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "apropiacionInicial" DECIMAL(18,2) NOT NULL,
+    "adiciones" DECIMAL(18,2) NOT NULL DEFAULT 0,
+    "reducciones" DECIMAL(18,2) NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "psp_apropiaciones_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "psp_cdp_consecutivos" (
+    "id" TEXT NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "ultimo" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "psp_cdp_consecutivos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "psp_cdps" (
+    "id" TEXT NOT NULL,
+    "numero" TEXT NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "rubroId" TEXT NOT NULL,
+    "valor" DECIMAL(18,2) NOT NULL,
+    "objeto" TEXT NOT NULL,
+    "estado" "EstadoDocPresupuestal" NOT NULL DEFAULT 'VIGENTE',
+    "creadoPor" TEXT,
+    "anuladoEn" TIMESTAMP(3),
+    "anuladoPor" TEXT,
+    "motivoAnulacion" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "psp_cdps_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "dependencias_codigo_key" ON "dependencias"("codigo");
 
@@ -437,6 +504,30 @@ CREATE INDEX "cp_asientos_cuentaId_idx" ON "cp_asientos"("cuentaId");
 -- CreateIndex
 CREATE INDEX "cp_asientos_terceroId_idx" ON "cp_asientos"("terceroId");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "psp_rubros_codigo_key" ON "psp_rubros"("codigo");
+
+-- CreateIndex
+CREATE INDEX "psp_rubros_parentId_idx" ON "psp_rubros"("parentId");
+
+-- CreateIndex
+CREATE INDEX "psp_rubros_tipo_idx" ON "psp_rubros"("tipo");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "psp_apropiaciones_rubroId_vigencia_key" ON "psp_apropiaciones"("rubroId", "vigencia");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "psp_cdp_consecutivos_vigencia_key" ON "psp_cdp_consecutivos"("vigencia");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "psp_cdps_numero_key" ON "psp_cdps"("numero");
+
+-- CreateIndex
+CREATE INDEX "psp_cdps_rubroId_vigencia_idx" ON "psp_cdps"("rubroId", "vigencia");
+
+-- CreateIndex
+CREATE INDEX "psp_cdps_vigencia_idx" ON "psp_cdps"("vigencia");
+
 -- AddForeignKey
 ALTER TABLE "dependencias" ADD CONSTRAINT "dependencias_padreId_fkey" FOREIGN KEY ("padreId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -496,4 +587,13 @@ ALTER TABLE "cp_asientos" ADD CONSTRAINT "cp_asientos_cuentaId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "cp_asientos" ADD CONSTRAINT "cp_asientos_terceroId_fkey" FOREIGN KEY ("terceroId") REFERENCES "cp_terceros"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "psp_rubros" ADD CONSTRAINT "psp_rubros_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "psp_rubros"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "psp_apropiaciones" ADD CONSTRAINT "psp_apropiaciones_rubroId_fkey" FOREIGN KEY ("rubroId") REFERENCES "psp_rubros"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "psp_cdps" ADD CONSTRAINT "psp_cdps_rubroId_fkey" FOREIGN KEY ("rubroId") REFERENCES "psp_rubros"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
