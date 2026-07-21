@@ -292,8 +292,24 @@ limpios (el único error de lint es preexistente en `scripts/verify-auth.ts`). P
 tenant-facing en el deploy sin subdominios reales todavía, se apuntó **temporalmente** el
 `dominioPersonalizado` del tenant demo a `government-one.vercel.app` (`scripts/set-tenant-host.ts`, reversible)
 → en esa URL, `/ingresar` y `/admin/*` resuelven al tenant demo (landing y `/superadmin` intactas). Funcionario
-admin de prueba sembrado en el tenant demo para la verificación. **Pendiente:** verificación visual en vivo tras
-el deploy; revertir el dominioPersonalizado del demo; config real de subdominios `*.ossgovernmentone.lat`.
+admin de prueba sembrado en el tenant demo para la verificación.
 
-**Siguiente:** cerrada la verificación → Paso B (Gestión Documental: TRD + radicación), luego C (Ventanilla
-Única con ruteo por `quienEjerce`) y D (portal público). Y la vista de estructura bajo Superadmin (opción 1).
+**✅ VERIFICADO EN VIVO en `government-one.vercel.app` (2026-07-21, tras deploy):**
+- `/ingresar` resolvió **"Alcaldía Demo"** por host (ruteo por `dominioPersonalizado` en producción, HTTPS).
+- Login con el funcionario admin del tenant → sesión `g1t_session` creada → redirigió a `/admin/estructura`
+  (auth de funcionario + DAL `requerirFuncionario` + gate del proxy, todo OK en prod).
+- **"Sembrar estructura"** → `✅ Estructura sembrada: 7 dependencias, 11 cargos nuevos.` — el árbol completo
+  de la plantilla ALCALDIA renderizó con sus grants por cargo, badges de jefatura y servicio compartido, y
+  cada cargo "sin ocupante".
+- **Vincular** Admin Demo (TITULAR) → PLAN · Secretario de Planeación → `✅ Vínculo creado`; el cargo pasó a
+  mostrar **`ejerce: Admin Demo · titular`** (`quienEjerce`) y el funcionario a **`capacidades efectivas:
+  contratacion:elaborar, ventanilla_unica:responder`** (`capacidadesEfectivas` = unión de grants del cargo
+  vigente). Fundación de dominio cableada de punta a punta, confirmada en producción.
+- Nota: el screenshot del pane in-app se colgó (inestabilidad ya conocida); evidencia por lectura de página.
+
+**Pendiente:** revertir el `dominioPersonalizado` del demo cuando haya subdominios reales; borrar el
+funcionario de prueba del demo; config real de `*.ossgovernmentone.lat` en el proyecto Vercel.
+
+**Siguiente:** Paso B (Gestión Documental: TRD + radicación), luego C (Ventanilla Única con ruteo por
+`quienEjerce`) y D (portal público). Y la vista de estructura bajo Superadmin (opción 1). Las superficies
+tenant-facing siguientes verifican en la misma URL de Vercel mientras el demo apunte ahí.
