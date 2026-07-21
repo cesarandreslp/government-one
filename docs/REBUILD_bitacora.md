@@ -420,7 +420,34 @@ wildcard). Nameservers del dominio = Vercel (DNS gestionado por Vercel; no requi
   superadmin), `demo.ossgovernmentone.lat` = tenant.
 - **✅ Verificado:** `https://demo.ossgovernmentone.lat/ingresar` → 200, muestra "Alcaldía Demo · Acceso de
   funcionarios", SSL automático (Claude in Chrome + curl).
-- **Pendiente (decisión del usuario, no bloqueante):** para que TODO tenant nuevo tenga subdominio automático
-  se necesita el **wildcard** en government-one → implica retirar/migrar la prod vieja `ossgovermentone` (que
-  hoy posee el wildcard). Mientras tanto, cada tenant nuevo se ata con un subdominio específico (una línea
-  `vercel domains add <slug>.ossgovernmentone.lat`), o se sigue verificando en el subdominio del demo.
+- Para que TODO tenant nuevo tenga subdominio automático se necesitaba el **wildcard** en government-one →
+  ver la sección siguiente (el usuario decidió proceder).
+
+## Progreso — Wildcard `*.ossgovernmentone.lat` movido a government-one (2026-07-21)
+
+El usuario decidió el **wildcard completo** (subdominio automático por tenant), asumiendo explícitamente la
+consecuencia: la prod vieja pierde el ruteo de sus subdominios. Reasignación vía **API de Vercel** (no CLI, para
+precisión — mover el project-domain, no borrar el dominio de la cuenta):
+- `DELETE /v9/projects/{ossgovermentone}/domains/*.ossgovernmentone.lat` → HTTP 200 (quitado del viejo).
+- `POST /v10/projects/{government-one}/domains {name:"*.ossgovernmentone.lat"}` → `verified:true`, HTTP 200.
+- Token del CLI en `AppData/Roaming/xdg.data/com.vercel.cli/auth.json`; team `team_DpR8…`; old
+  `prj_4i9hQr9BrSAdFrPL1n4XnuMt6MLn`, new `prj_uzWNrMOU5xJ5vzd5UZgh6G26lBVf`.
+- **Consecuencia (aceptada):** el proyecto viejo `ossgovermentone` conserva solo el apex `ossgovernmentone.lat`
+  (+ `personeriabuga.vercel.app`); sus subdominios de tenant (`alcaldia-armenia`, `personeria-buga`) ahora
+  resuelven a government-one → "Entidad no encontrada" (no están en la meta-DB nueva). La prod vieja era solo
+  referencia (datos de prueba).
+
+**✅ VERIFICADO end-to-end (Claude in Chrome + curl):**
+- Subdominio arbitrario `zzz-test.ossgovernmentone.lat/ingresar` → servido por government-one ("Entidad no
+  encontrada"), SSL instantáneo (cert wildcard) → el wildcard enruta CUALQUIER subdominio al app nuevo.
+- **Prueba definitiva "tenant nuevo → subdominio automático":** `scripts/provision-tenant.ts` (nuevo, general,
+  env-driven) provisionó "Alcaldía de Pinar" (BD Neon dedicada real); **`https://pinar.ossgovernmentone.lat/
+  ingresar` mostró "Alcaldía de Pinar" sin NINGÚN paso manual de dominio** — el `provisionTenant` fija
+  `dominioPrincipal=<slug>.ossgovernmentone.lat` y el wildcard lo resuelve solo. Tenant de prueba luego
+  eliminado con `scripts/delete-tenant.ts` (nuevo; borra Neon + registro meta) → `pinar.` volvió a "Entidad no
+  encontrada".
+- `demo.ossgovernmentone.lat` sigue vivo (además tiene su entrada específica, redundante con el wildcard, se deja).
+
+**Estado del ruteo:** `government-one.vercel.app` = plataforma; `*.ossgovernmentone.lat` = tenants (automático
+por provisión). **Pendiente opcional (no pedido):** mover también el **apex** `ossgovernmentone.lat` a
+government-one (hoy sigue sirviendo la landing vieja) si se quiere que el dominio raíz sea la landing nueva.
