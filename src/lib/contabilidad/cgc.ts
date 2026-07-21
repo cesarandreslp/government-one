@@ -1,4 +1,3 @@
-import "server-only"
 import type { PrismaClient } from "@/generated/tenant/client"
 
 // CGC — Catálogo General de Cuentas de la Contaduría General de la Nación, Marco Normativo para
