@@ -347,6 +347,13 @@ dependencia/clasificar en subserie), **Nueva serie** y **Nueva subserie**, mostr
 `crearSubserieAction`, `cambiarEstadoAction`, todas gateadas por `funcionarioPuede`. Ítem "Gestión Documental"
 en el nav del admin del tenant.
 
-**Verificación:** `tsc --noEmit` y `eslint` limpios. Pendiente: verificación visual en vivo en Vercel (con
-Claude in Chrome, no local) tras el deploy — radicar → aparece en bandeja con consecutivo correcto; crear
-serie/subserie TRD.
+**Verificación:** `tsc --noEmit` y `eslint` limpios.
+
+**✅ VERIFICADO EN VIVO en `government-one.vercel.app` con Claude in Chrome (2026-07-21):**
+- TRD: creada serie **PLAN·100 Contratos** → subserie **100.10 Contratos de prestación de servicios**
+  (retención 2/8 años, CONSERVACION_TOTAL); renderiza en la sección TRD.
+- Radicación (3 documentos): **E-2026-000001** (Entrada, clasificado en la subserie + ruteado a Planeación),
+  luego **S-2026-000001** (Salida) y **E-2026-000002** (Entrada) → confirma que el **consecutivo es atómico
+  e independiente por (tipo, año)**: Entrada avanzó 000001→000002, Salida arrancó su propia serie en 000001.
+- Los 3 aparecen en la **bandeja** con número/tipo/asunto/tercero/dependencia/estado (RADICADO); KPIs por
+  estado correctos. Todo con el funcionario admin del tenant demo, en la URL de Vercel (no local).
