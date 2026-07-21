@@ -4,6 +4,9 @@ import { redirect } from "next/navigation"
 import { contextoTenant, type ContextoTenant } from "@/lib/contexto-tenant"
 import { leerSesionTenant } from "@/lib/tenant-session-cookies"
 import type { TenantSessionPayload } from "@/lib/tenant-session"
+import { tieneCapacidad } from "@/lib/dominio/acceso"
+
+const ROLES_ADMIN_TENANT = ["ADMIN", "SUPER_ADMIN"]
 
 // Data Access Layer del TENANT: cerradura de autorización cerca de los datos para /admin/*.
 // Distinta del DAL de plataforma (dal.ts, que mira la sesión del superadmin en la meta-DB).
@@ -35,4 +38,18 @@ export async function requerirRolTenant(roles: string[]): Promise<ContextoFuncio
   const ctx = await requerirFuncionario()
   if (!roles.includes(ctx.sesion.rol)) redirect("/admin")
   return ctx
+}
+
+/**
+ * ¿El funcionario puede ejecutar una CAPACIDAD de módulo? Los administradores del tenant
+ * (ADMIN/SUPER_ADMIN) siempre pueden (administran la entidad); el resto necesita la capacidad
+ * conferida por algún cargo vigente (fundación de dominio). Aquí se cablea `tieneCapacidad`.
+ */
+export async function funcionarioPuede(
+  ctx: ContextoFuncionario,
+  modulo: string,
+  capacidad: string,
+): Promise<boolean> {
+  if (ROLES_ADMIN_TENANT.includes(ctx.sesion.rol)) return true
+  return tieneCapacidad(ctx.db, ctx.sesion.usuarioId, modulo, capacidad)
 }

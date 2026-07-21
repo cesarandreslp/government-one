@@ -22,6 +22,9 @@ export default async function AdminTenantLayout({ children }: { children: React.
               <Link href="/admin/estructura" className="text-slate-600 hover:text-slate-900">
                 Estructura
               </Link>
+              <Link href="/admin/gd" className="text-slate-600 hover:text-slate-900">
+                Gestión Documental
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-4">

@@ -58,7 +58,9 @@ model Dependencia {
   padre   Dependencia?  @relation("SubDependencias", fields: [padreId], references: [id])
   hijas   Dependencia[] @relation("SubDependencias")
 
-  cargos Cargo[]
+  cargos    Cargo[]
+  gdSeries  GdSerie[]
+  radicados Radicado[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -103,6 +105,7 @@ model Usuario {
 
   vinculaciones VinculacionCargo[]
   ausencias     Ausencia[]
+  radicados     Radicado[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -145,4 +148,129 @@ model Ausencia {
 
   @@index([usuarioId])
   @@map("ausencias")
+}
+
+// ─────────────────── Módulo base: GESTIÓN DOCUMENTAL (TRD + radicación) ───────────────────
+// La Tabla de Retención Documental (TRD) es DATO del tenant (cada entidad aprueba la suya),
+// no un catálogo nacional: Serie → Subserie por dependencia, con tiempos y disposición final.
+// El radicado numera con consecutivo POR TENANT (por tipo y año), atómico.
+
+enum GdTipoRadicado {
+  ENTRADA // documento que llega del exterior
+  SALIDA // documento que la entidad envía
+  INTERNO // memorando/comunicación interna
+}
+
+enum GdEstadoRadicado {
+  RADICADO
+  EN_TRAMITE
+  RESPONDIDO
+  ARCHIVADO
+  ANULADO
+}
+
+/// Disposición final de la subserie documental (norma AGN).
+enum GdDisposicion {
+  CONSERVACION_TOTAL
+  ELIMINACION
+  SELECCION
+  DIGITALIZACION
+}
+
+/// Serie documental de la TRD, asociada a una dependencia productora.
+model GdSerie {
+  id            String      @id @default(cuid())
+  dependenciaId String
+  dependencia   Dependencia @relation(fields: [dependenciaId], references: [id])
+  codigo        String
+  nombre        String
+  activa        Boolean     @default(true)
+
+  subseries GdSubserie[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dependenciaId, codigo])
+  @@index([dependenciaId])
+  @@map("gd_series")
+}
+
+/// Subserie documental: nivel donde viven la retención y la disposición final.
+model GdSubserie {
+  id               String         @id @default(cuid())
+  serieId          String
+  serie            GdSerie        @relation(fields: [serieId], references: [id], onDelete: Cascade)
+  codigo           String
+  nombre           String
+  retencionGestion Int? // años en archivo de gestión
+  retencionCentral Int? // años en archivo central
+  disposicion      GdDisposicion?
+  activa           Boolean        @default(true)
+
+  radicados Radicado[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([serieId, codigo])
+  @@index([serieId])
+  @@map("gd_subseries")
+}
+
+/// Contador atómico del consecutivo de radicación, por tipo y año (numeración por tenant).
+model GdConsecutivo {
+  id     String         @id @default(cuid())
+  tipo   GdTipoRadicado
+  anio   Int
+  ultimo Int            @default(0)
+
+  @@unique([tipo, anio])
+  @@map("gd_consecutivos")
+}
+
+/// Radicado: registro de entrada/salida/interno con número consecutivo único por tenant.
+model Radicado {
+  id          String           @id @default(cuid())
+  numero      String           @unique // ej. E-2026-000001
+  tipo        GdTipoRadicado
+  anio        Int
+  consecutivo Int
+  asunto      String
+  /// Remitente (ENTRADA) o destinatario (SALIDA); tercero externo, texto libre.
+  tercero     String?
+  estado      GdEstadoRadicado @default(RADICADO)
+
+  // Ruteo a la dependencia responsable + clasificación TRD (opcional al radicar).
+  dependenciaId String?
+  dependencia   Dependencia? @relation(fields: [dependenciaId], references: [id])
+  subserieId    String?
+  subserie      GdSubserie?  @relation(fields: [subserieId], references: [id])
+
+  radicadoPorId String?
+  radicadoPor   Usuario? @relation(fields: [radicadoPorId], references: [id])
+
+  fechaRadicado DateTime    @default(now())
+  adjuntos      GdAdjunto[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tipo, anio])
+  @@index([dependenciaId])
+  @@index([estado])
+  @@map("radicados")
+}
+
+/// Adjunto de un radicado. El storage por-tenant llega después; por ahora referencia por URL.
+model GdAdjunto {
+  id         String   @id @default(cuid())
+  radicadoId String
+  radicado   Radicado @relation(fields: [radicadoId], references: [id], onDelete: Cascade)
+  nombre     String
+  url        String
+  createdAt  DateTime @default(now())
+
+  @@index([radicadoId])
+  @@map("gd_adjuntos")
 }

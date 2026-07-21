@@ -313,3 +313,40 @@ funcionario de prueba del demo; config real de `*.ossgovernmentone.lat` en el pr
 **Siguiente:** Paso B (Gestión Documental: TRD + radicación), luego C (Ventanilla Única con ruteo por
 `quienEjerce`) y D (portal público). Y la vista de estructura bajo Superadmin (opción 1). Las superficies
 tenant-facing siguientes verifican en la misma URL de Vercel mientras el demo apunte ahí.
+
+## Progreso — Módulo Base, Paso B: Gestión Documental (TRD + radicación) (2026-07-21)
+
+Segunda sub-pieza del módulo base. Radicación con **consecutivo por tenant** + Tabla de Retención Documental
+(TRD) como dato del tenant. Es donde se **cablea la fundación de dominio en el gating de acciones de módulo**.
+
+**Modelo (tenant schema, aditivo):** `GdSerie` (Serie TRD por dependencia) → `GdSubserie` (retención gestión/
+central + `GdDisposicion` CONSERVACION_TOTAL/ELIMINACION/SELECCION/DIGITALIZACION); `Radicado` (`numero`
+único, `GdTipoRadicado` ENTRADA/SALIDA/INTERNO, `GdEstadoRadicado`, `dependenciaId`+`subserieId` opcionales,
+`radicadoPorId`); `GdConsecutivo` (contador atómico `@@unique([tipo, anio])`); `GdAdjunto` (URL; el storage
+por-tenant llega después). Back-relations en `Dependencia`/`Usuario`. `provision-schema.sql` regenerado (10
+tablas). Número de radicado `E/S/I-AAAA-000001`, consecutivo atómico vía `upsert ... increment` en
+`$transaction`.
+
+**Migración a tenants existentes — `scripts/migrate-tenants-diff.ts` (NUEVO, migrador interino/fan-out):**
+para cada tenant ACTIVO calcula el diff entre SU BD y el schema objetivo con `prisma migrate diff
+--from-config-datasource --to-schema` (apuntando `POSTGRES_URL_NON_POOLING` a la BD directa del tenant; dotenv
+no sobreescribe env ya presente) y aplica el delta con `pg`. Idempotente por diseño (si está al día, no hace
+nada). `DRY_RUN=1` para inspeccionar. Anticipa el orquestador formal del plano de control. Delta aplicado al
+tenant demo (5 tablas GD + 3 enums). ⚠️ Prisma 7 **quitó `--from-url`/`--to-url`**: solo `--from-empty/-schema/
+-migrations/-config-datasource` (otro caso del AGENTS.md — verificar la CLI, no asumir).
+
+**Gating por CAPACIDAD (fundación de dominio cableada):** `src/lib/dal-tenant.ts` → `funcionarioPuede(ctx,
+modulo, cap)`: los admins del tenant (ADMIN/SUPER_ADMIN) pasan siempre (administran la entidad); el resto
+necesita la capacidad conferida por un cargo vigente (`tieneCapacidad`). **Nada mira el rol para funciones de
+módulo** — solo identidad-admin como bypass de administración. Todas las acciones de GD lo usan.
+
+**UI (`/admin/gd`):** `page.tsx` (server) — KPIs por estado, TRD (series→subseries con retención/disposición),
+**bandeja de radicados**; `gd-acciones.tsx` (client) — formularios de **Radicar** (tipo/asunto/tercero/rutear a
+dependencia/clasificar en subserie), **Nueva serie** y **Nueva subserie**, mostrados según capacidad
+(`puedeRadicar`/`puedeTrd`). `actions.ts` — `radicarAction` (consecutivo atómico), `crearSerieAction`,
+`crearSubserieAction`, `cambiarEstadoAction`, todas gateadas por `funcionarioPuede`. Ítem "Gestión Documental"
+en el nav del admin del tenant.
+
+**Verificación:** `tsc --noEmit` y `eslint` limpios. Pendiente: verificación visual en vivo en Vercel (con
+Claude in Chrome, no local) tras el deploy — radicar → aparece en bandeja con consecutivo correcto; crear
+serie/subserie TRD.
