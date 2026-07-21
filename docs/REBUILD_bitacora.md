@@ -387,6 +387,16 @@ gateadas por capacidad `ventanilla_unica` (radicar/responder) vía `funcionarioP
 en el nav. IA de clasificación (fase 2) omitida — el ruteo por reglas + cargo funciona sin IA (y cuando entre,
 key IA POR-TENANT → [[regla-oro-credenciales-por-tenant]]).
 
-**Verificación:** `tsc --noEmit` y `eslint` limpios. Pendiente: verificación en vivo en Vercel (Claude in
-Chrome) — radicar PQRSD a Planeación → se asigna a quien ejerce; añadir un ENCARGADO al cargo → la siguiente
-va al encargado (demostración de `quienEjerce` end-to-end).
+**Verificación:** `tsc --noEmit` y `eslint` limpios.
+
+**✅ VERIFICADO EN VIVO en `government-one.vercel.app` con Claude in Chrome (2026-07-21) — el diferenciador
+funciona end-to-end:**
+- Radicada **PQRSD-2026-000001** (Petición, dependencia competente = Planeación) → auto-asignada a **Admin
+  Demo** (titular del cargo Secretario de Planeación), estado ASIGNADA, término 15d hábiles.
+- En estructura: creada funcionaria **Beatriz Torres** y vinculada como **ENCARGADO** del mismo cargo
+  (acto admin. "Decreto 045/2026 — encargo por vacaciones").
+- Radicada **PQRSD-2026-000002** (misma dependencia competente, MISMA regla de ruteo) → auto-asignada a
+  **Beatriz Torres** (la encargada). **`quienEjerce` dio precedencia al encargo** y reasignó la nueva PQRSD
+  sin tocar la regla de ruteo — exactamente la promesa de la fundación de dominio (una persona = identidad,
+  el trabajo va al cargo → a quien lo ejerce hoy). Ambas visibles en la bandeja con "asignada a" + cargo +
+  dependencia + semáforo de término.
