@@ -462,6 +462,7 @@ model Tercero {
   activo        Boolean       @default(true)
 
   asientos Asiento[]
+  rps      Rp[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -497,6 +498,7 @@ model Comprobante {
   totalCredito Decimal           @db.Decimal(18, 2)
 
   asientos Asiento[]
+  pago     Pago?
 
   // Trazabilidad cruzada (presupuesto/nómina/… postean aquí).
   fuenteModulo    String?
@@ -627,7 +629,126 @@ model Cdp {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  rps Rp[]
+
   @@index([rubroId, vigencia])
   @@index([vigencia])
   @@map("psp_cdps")
+}
+
+/// Contador atómico del consecutivo de RP, por vigencia.
+model RpConsecutivo {
+  id       String @id @default(cuid())
+  vigencia Int    @unique
+  ultimo   Int    @default(0)
+
+  @@map("psp_rp_consecutivos")
+}
+
+/// RP (Registro Presupuestal de Compromiso) — afecta un CDP; formaliza el compromiso con un
+/// tercero. Valida `valor ≤ disponible` del CDP (CDP.valor − Σ RP vigentes) al crearse.
+model Rp {
+  id        String                @id @default(cuid())
+  numero    String                @unique // "RP-2026-000123"
+  fecha     DateTime
+  vigencia  Int
+  cdpId     String
+  cdp       Cdp                   @relation(fields: [cdpId], references: [id])
+  terceroId String?
+  tercero   Tercero?              @relation(fields: [terceroId], references: [id])
+  valor     Decimal               @db.Decimal(18, 2)
+  objeto    String
+  estado    EstadoDocPresupuestal @default(VIGENTE)
+
+  creadoPor       String?
+  anuladoEn       DateTime?
+  anuladoPor      String?
+  motivoAnulacion String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  obligaciones Obligacion[]
+
+  @@index([cdpId])
+  @@map("psp_rps")
+}
+
+/// Contador atómico del consecutivo de Obligación, por vigencia.
+model ObligacionConsecutivo {
+  id       String @id @default(cuid())
+  vigencia Int    @unique
+  ultimo   Int    @default(0)
+
+  @@map("psp_obligacion_consecutivos")
+}
+
+/// Obligación (cuenta por pagar) — afecta un RP; el bien/servicio ya se recibió a satisfacción.
+/// Valida `valor ≤ disponible` del RP (RP.valor − Σ Obligación vigentes) al crearse.
+model Obligacion {
+  id       String                @id @default(cuid())
+  numero   String                @unique // "OB-2026-000123"
+  fecha    DateTime
+  rpId     String
+  rp       Rp                    @relation(fields: [rpId], references: [id])
+  valor    Decimal               @db.Decimal(18, 2)
+  concepto String
+  estado   EstadoDocPresupuestal @default(VIGENTE)
+
+  creadoPor       String?
+  anuladoEn       DateTime?
+  anuladoPor      String?
+  motivoAnulacion String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pagos Pago[]
+
+  @@index([rpId])
+  @@map("psp_obligaciones")
+}
+
+enum MedioPago {
+  TRANSFERENCIA
+  CHEQUE
+  EFECTIVO
+  OTRO
+}
+
+/// Contador atómico del consecutivo de Pago, por vigencia.
+model PagoConsecutivo {
+  id       String @id @default(cuid())
+  vigencia Int    @unique
+  ultimo   Int    @default(0)
+
+  @@map("psp_pago_consecutivos")
+}
+
+/// Pago — afecta una Obligación; cierra la cadena presupuestal Y contable en una sola
+/// transacción: genera un Comprobante EGRESO (D gasto / C banco) en Contabilidad. Valida
+/// `valor ≤ disponible` de la Obligación (Obligacion.valor − Σ Pago vigentes) al crearse.
+model Pago {
+  id           String                @id @default(cuid())
+  numero       String                @unique // "PG-2026-000123"
+  fecha        DateTime
+  obligacionId String
+  obligacion   Obligacion            @relation(fields: [obligacionId], references: [id])
+  valor        Decimal               @db.Decimal(18, 2)
+  medioPago    MedioPago             @default(TRANSFERENCIA)
+  referencia   String?
+  comprobanteId String               @unique
+  comprobante  Comprobante           @relation(fields: [comprobanteId], references: [id])
+  estado       EstadoDocPresupuestal @default(VIGENTE)
+
+  creadoPor       String?
+  anuladoEn       DateTime?
+  anuladoPor      String?
+  motivoAnulacion String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([obligacionId])
+  @@map("psp_pagos")
 }

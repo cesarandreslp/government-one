@@ -57,6 +57,9 @@ CREATE TYPE "RubroTipo" AS ENUM ('INGRESO', 'GASTO');
 -- CreateEnum
 CREATE TYPE "EstadoDocPresupuestal" AS ENUM ('VIGENTE', 'ANULADO');
 
+-- CreateEnum
+CREATE TYPE "MedioPago" AS ENUM ('TRANSFERENCIA', 'CHEQUE', 'EFECTIVO', 'OTRO');
+
 -- CreateTable
 CREATE TABLE "dependencias" (
     "id" TEXT NOT NULL,
@@ -393,6 +396,94 @@ CREATE TABLE "psp_cdps" (
     CONSTRAINT "psp_cdps_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "psp_rp_consecutivos" (
+    "id" TEXT NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "ultimo" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "psp_rp_consecutivos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "psp_rps" (
+    "id" TEXT NOT NULL,
+    "numero" TEXT NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "cdpId" TEXT NOT NULL,
+    "terceroId" TEXT,
+    "valor" DECIMAL(18,2) NOT NULL,
+    "objeto" TEXT NOT NULL,
+    "estado" "EstadoDocPresupuestal" NOT NULL DEFAULT 'VIGENTE',
+    "creadoPor" TEXT,
+    "anuladoEn" TIMESTAMP(3),
+    "anuladoPor" TEXT,
+    "motivoAnulacion" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "psp_rps_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "psp_obligacion_consecutivos" (
+    "id" TEXT NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "ultimo" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "psp_obligacion_consecutivos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "psp_obligaciones" (
+    "id" TEXT NOT NULL,
+    "numero" TEXT NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "rpId" TEXT NOT NULL,
+    "valor" DECIMAL(18,2) NOT NULL,
+    "concepto" TEXT NOT NULL,
+    "estado" "EstadoDocPresupuestal" NOT NULL DEFAULT 'VIGENTE',
+    "creadoPor" TEXT,
+    "anuladoEn" TIMESTAMP(3),
+    "anuladoPor" TEXT,
+    "motivoAnulacion" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "psp_obligaciones_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "psp_pago_consecutivos" (
+    "id" TEXT NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "ultimo" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "psp_pago_consecutivos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "psp_pagos" (
+    "id" TEXT NOT NULL,
+    "numero" TEXT NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "obligacionId" TEXT NOT NULL,
+    "valor" DECIMAL(18,2) NOT NULL,
+    "medioPago" "MedioPago" NOT NULL DEFAULT 'TRANSFERENCIA',
+    "referencia" TEXT,
+    "comprobanteId" TEXT NOT NULL,
+    "estado" "EstadoDocPresupuestal" NOT NULL DEFAULT 'VIGENTE',
+    "creadoPor" TEXT,
+    "anuladoEn" TIMESTAMP(3),
+    "anuladoPor" TEXT,
+    "motivoAnulacion" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "psp_pagos_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "dependencias_codigo_key" ON "dependencias"("codigo");
 
@@ -528,6 +619,36 @@ CREATE INDEX "psp_cdps_rubroId_vigencia_idx" ON "psp_cdps"("rubroId", "vigencia"
 -- CreateIndex
 CREATE INDEX "psp_cdps_vigencia_idx" ON "psp_cdps"("vigencia");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "psp_rp_consecutivos_vigencia_key" ON "psp_rp_consecutivos"("vigencia");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "psp_rps_numero_key" ON "psp_rps"("numero");
+
+-- CreateIndex
+CREATE INDEX "psp_rps_cdpId_idx" ON "psp_rps"("cdpId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "psp_obligacion_consecutivos_vigencia_key" ON "psp_obligacion_consecutivos"("vigencia");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "psp_obligaciones_numero_key" ON "psp_obligaciones"("numero");
+
+-- CreateIndex
+CREATE INDEX "psp_obligaciones_rpId_idx" ON "psp_obligaciones"("rpId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "psp_pago_consecutivos_vigencia_key" ON "psp_pago_consecutivos"("vigencia");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "psp_pagos_numero_key" ON "psp_pagos"("numero");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "psp_pagos_comprobanteId_key" ON "psp_pagos"("comprobanteId");
+
+-- CreateIndex
+CREATE INDEX "psp_pagos_obligacionId_idx" ON "psp_pagos"("obligacionId");
+
 -- AddForeignKey
 ALTER TABLE "dependencias" ADD CONSTRAINT "dependencias_padreId_fkey" FOREIGN KEY ("padreId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -596,4 +717,19 @@ ALTER TABLE "psp_apropiaciones" ADD CONSTRAINT "psp_apropiaciones_rubroId_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "psp_cdps" ADD CONSTRAINT "psp_cdps_rubroId_fkey" FOREIGN KEY ("rubroId") REFERENCES "psp_rubros"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "psp_rps" ADD CONSTRAINT "psp_rps_cdpId_fkey" FOREIGN KEY ("cdpId") REFERENCES "psp_cdps"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "psp_rps" ADD CONSTRAINT "psp_rps_terceroId_fkey" FOREIGN KEY ("terceroId") REFERENCES "cp_terceros"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "psp_obligaciones" ADD CONSTRAINT "psp_obligaciones_rpId_fkey" FOREIGN KEY ("rpId") REFERENCES "psp_rps"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "psp_pagos" ADD CONSTRAINT "psp_pagos_obligacionId_fkey" FOREIGN KEY ("obligacionId") REFERENCES "psp_obligaciones"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "psp_pagos" ADD CONSTRAINT "psp_pagos_comprobanteId_fkey" FOREIGN KEY ("comprobanteId") REFERENCES "cp_comprobantes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
