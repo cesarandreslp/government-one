@@ -67,7 +67,7 @@ CREATE TYPE "ProyectoEstado" AS ENUM ('FORMULACION', 'EJECUCION', 'SUSPENDIDO', 
 CREATE TYPE "ModalidadContratacion" AS ENUM ('LICITACION_PUBLICA', 'SELECCION_ABREVIADA', 'CONCURSO_MERITOS', 'CONTRATACION_DIRECTA', 'MINIMA_CUANTIA');
 
 -- CreateEnum
-CREATE TYPE "EstadoContrato" AS ENUM ('BORRADOR', 'EN_REVISION_JURIDICA', 'DEVUELTO_ESTRUCTURACION', 'PERFECCIONADO', 'SUSCRITO', 'EN_EJECUCION', 'SUSPENDIDO', 'TERMINADO', 'INCUMPLIDO', 'LIQUIDADO');
+CREATE TYPE "EstadoContrato" AS ENUM ('BORRADOR', 'EN_REVISION_JURIDICA', 'DEVUELTO_ESTRUCTURACION', 'PERFECCIONADO', 'RP_REGISTRADO', 'SUSCRITO', 'EN_EJECUCION', 'SUSPENDIDO', 'TERMINADO', 'INCUMPLIDO', 'LIQUIDADO');
 
 -- CreateEnum
 CREATE TYPE "TipoVersionContrato" AS ENUM ('BORRADOR_ESTRUCTURACION', 'REVISION_JURIDICA');
@@ -579,7 +579,6 @@ CREATE TABLE "con_contratos" (
     "terceroId" TEXT NOT NULL,
     "estructuradorId" TEXT,
     "abogadoAsignadoId" TEXT,
-    "proyectoId" TEXT,
     "rpId" TEXT,
     "fechaSuscripcion" TIMESTAMP(3),
     "creadoPor" TEXT,
@@ -915,9 +914,6 @@ ALTER TABLE "con_contratos" ADD CONSTRAINT "con_contratos_estructuradorId_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "con_contratos" ADD CONSTRAINT "con_contratos_abogadoAsignadoId_fkey" FOREIGN KEY ("abogadoAsignadoId") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "con_contratos" ADD CONSTRAINT "con_contratos_proyectoId_fkey" FOREIGN KEY ("proyectoId") REFERENCES "bp_proyectos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "con_contratos" ADD CONSTRAINT "con_contratos_rpId_fkey" FOREIGN KEY ("rpId") REFERENCES "psp_rps"("id") ON DELETE SET NULL ON UPDATE CASCADE;

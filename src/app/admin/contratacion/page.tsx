@@ -16,14 +16,18 @@ export default async function ContratacionPage() {
     funcionarioPuede(ctx, "contratacion", "supervisar"),
   ])
 
-  const [contratos, terceros, proyectos, rps, estructuradores, abogados] = await Promise.all([
+  const [contratos, terceros, rpsDisponibles, estructuradores, abogados] = await Promise.all([
     db.contrato.findMany({
       orderBy: { createdAt: "desc" },
-      include: { tercero: true, estructurador: true, abogadoAsignado: true, versiones: { orderBy: { numeroVersion: "desc" } } },
+      include: {
+        tercero: true, estructurador: true, abogadoAsignado: true,
+        versiones: { orderBy: { numeroVersion: "desc" } },
+        rp: { include: { cdp: { include: { proyecto: true } } } },
+      },
     }),
     db.tercero.findMany({ orderBy: { razonSocial: "asc" } }),
-    db.proyecto.findMany({ orderBy: { codigo: "asc" } }),
-    db.rp.findMany({ where: { estado: "VIGENTE" }, orderBy: { numero: "asc" } }),
+    // RP vigentes que aún no respaldan otro contrato — un RP no se reparte entre contratos.
+    db.rp.findMany({ where: { estado: "VIGENTE", contratos: { none: {} } }, orderBy: { numero: "asc" } }),
     usuariosConCapacidad(db, "contratacion", "elaborar"),
     usuariosConCapacidad(db, "contratacion", "revisar_juridica"),
   ])
@@ -72,8 +76,7 @@ export default async function ContratacionPage() {
         puedeAprobar={puedeAprobar}
         puedeSupervisar={puedeSupervisar}
         terceros={terceros.map((t) => ({ id: t.id, etiqueta: `${t.documento} · ${t.razonSocial}` }))}
-        proyectos={proyectos.map((p) => ({ id: p.id, etiqueta: `${p.codigo} · ${p.nombre}` }))}
-        rps={rps.map((r) => ({ id: r.id, etiqueta: r.numero }))}
+        rpsDisponibles={rpsDisponibles.map((r) => ({ id: r.id, etiqueta: `${r.numero} · $${Number(r.valor).toLocaleString("es-CO")}` }))}
         estructuradores={estructuradores.map((u) => ({ id: u.id, etiqueta: `${u.nombre} ${u.apellido}` }))}
         abogados={abogados.map((u) => ({ id: u.id, etiqueta: `${u.nombre} ${u.apellido}` }))}
         contratos={contratos.map((c) => ({
@@ -88,6 +91,8 @@ export default async function ContratacionPage() {
           estructuradorNombre: c.estructurador ? `${c.estructurador.nombre} ${c.estructurador.apellido}` : null,
           abogadoAsignadoId: c.abogadoAsignadoId,
           abogadoNombre: c.abogadoAsignado ? `${c.abogadoAsignado.nombre} ${c.abogadoAsignado.apellido}` : null,
+          rpNumero: c.rp?.numero ?? null,
+          proyectoCodigo: c.rp?.cdp.proyecto?.codigo ?? null,
           versiones: c.versiones.map((v) => ({
             id: v.id, numeroVersion: v.numeroVersion, tipo: v.tipo, aprobado: v.aprobado,
             contenido: v.contenido, observaciones: v.observaciones, createdAt: v.createdAt.toISOString(),

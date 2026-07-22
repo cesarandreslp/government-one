@@ -10,6 +10,7 @@ export type EstadoContrato =
   | "EN_REVISION_JURIDICA"
   | "DEVUELTO_ESTRUCTURACION"
   | "PERFECCIONADO"
+  | "RP_REGISTRADO"
   | "SUSCRITO"
   | "EN_EJECUCION"
   | "SUSPENDIDO"
@@ -17,11 +18,17 @@ export type EstadoContrato =
   | "INCUMPLIDO"
   | "LIQUIDADO"
 
+// PERFECCIONADO → RP_REGISTRADO → SUSCRITO: separa perfeccionamiento jurídico del respaldo
+// presupuestal. No es burocracia de más — es Art. 71 Decreto 111/1996 (Estatuto Orgánico de
+// Presupuesto): "en ningún caso se podrán adquirir compromisos... sin que exista disponibilidad
+// presupuestal y se cuente con el respectivo registro presupuestal". Sin RP, el contrato no puede
+// suscribirse; ver el gate explícito en puedeAvanzarContrato.
 export const TRANSICIONES_CONTRATO: Record<EstadoContrato, EstadoContrato[]> = {
   BORRADOR: ["EN_REVISION_JURIDICA"],
   EN_REVISION_JURIDICA: ["PERFECCIONADO", "DEVUELTO_ESTRUCTURACION"],
   DEVUELTO_ESTRUCTURACION: ["EN_REVISION_JURIDICA"],
-  PERFECCIONADO: ["SUSCRITO"],
+  PERFECCIONADO: ["RP_REGISTRADO"],
+  RP_REGISTRADO: ["SUSCRITO"],
   SUSCRITO: ["EN_EJECUCION"],
   EN_EJECUCION: ["SUSPENDIDO", "TERMINADO", "INCUMPLIDO", "LIQUIDADO"],
   SUSPENDIDO: ["EN_EJECUCION", "TERMINADO"],
@@ -35,6 +42,7 @@ export const ETAPA_LABEL: Record<EstadoContrato, string> = {
   EN_REVISION_JURIDICA: "En revisión jurídica",
   DEVUELTO_ESTRUCTURACION: "Devuelto a estructuración",
   PERFECCIONADO: "Perfeccionado",
+  RP_REGISTRADO: "RP registrado",
   SUSCRITO: "Suscrito",
   EN_EJECUCION: "En ejecución",
   SUSPENDIDO: "Suspendido",
@@ -91,7 +99,11 @@ export function puedeAvanzarContrato(
     return null
   }
 
-  if (desde === "PERFECCIONADO" && hacia === "SUSCRITO") {
+  if (desde === "PERFECCIONADO" && hacia === "RP_REGISTRADO") {
+    return actor.puedeAprobar ? null : "No tienes la capacidad para registrar el RP del contrato."
+  }
+
+  if (desde === "RP_REGISTRADO" && hacia === "SUSCRITO") {
     return actor.puedeAprobar ? null : "No tienes la capacidad para suscribir contratos."
   }
 

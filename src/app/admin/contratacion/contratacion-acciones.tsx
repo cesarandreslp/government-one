@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react"
 import {
-  crearContratoAction, enviarRevisionAction, asignarAbogadoAction, responderRevisionAction, avanzarSimpleAction,
+  crearContratoAction, enviarRevisionAction, asignarAbogadoAction, responderRevisionAction, registrarRpAction, avanzarSimpleAction,
   type ConState,
 } from "./actions"
 
@@ -22,7 +22,8 @@ interface Version {
 interface ContratoDTO {
   id: string; numero: string; objeto: string; modalidad: string; estado: string; valorContrato: number
   tercero: string; estructuradorId: string | null; estructuradorNombre: string | null
-  abogadoAsignadoId: string | null; abogadoNombre: string | null; versiones: Version[]
+  abogadoAsignadoId: string | null; abogadoNombre: string | null
+  rpNumero: string | null; proyectoCodigo: string | null; versiones: Version[]
 }
 
 interface Props {
@@ -34,8 +35,7 @@ interface Props {
   puedeAprobar: boolean
   puedeSupervisar: boolean
   terceros: Opcion[]
-  proyectos: Opcion[]
-  rps: Opcion[]
+  rpsDisponibles: Opcion[]
   estructuradores: Opcion[]
   abogados: Opcion[]
   contratos: ContratoDTO[]
@@ -52,6 +52,7 @@ const ESTADO_COLOR: Record<string, string> = {
   EN_REVISION_JURIDICA: "bg-amber-100 text-amber-800",
   DEVUELTO_ESTRUCTURACION: "bg-red-100 text-red-700",
   PERFECCIONADO: "bg-blue-100 text-blue-700",
+  RP_REGISTRADO: "bg-cyan-100 text-cyan-800",
   SUSCRITO: "bg-indigo-100 text-indigo-700",
   EN_EJECUCION: "bg-emerald-100 text-emerald-800",
   SUSPENDIDO: "bg-amber-100 text-amber-800",
@@ -83,10 +84,10 @@ function useResetTrasExito(state: ConState, reset: () => void) {
 }
 
 export function ContratacionAcciones(props: Props) {
-  const { esAdmin, puedeElaborar, terceros, proyectos, rps, estructuradores, contratos } = props
+  const { esAdmin, puedeElaborar, terceros, estructuradores, contratos } = props
   const [proyState, proyAction, proyPend] = useActionState(crearContratoAction, inicial)
-  const [form, setForm] = useState({ objeto: "", modalidad: "CONTRATACION_DIRECTA", valorContrato: "", terceroId: "", estructuradorId: "", vigencia: String(ANIO_ACTUAL), plazoDias: "", proyectoId: "", rpId: "" })
-  useResetTrasExito(proyState, () => setForm({ objeto: "", modalidad: "CONTRATACION_DIRECTA", valorContrato: "", terceroId: "", estructuradorId: "", vigencia: String(ANIO_ACTUAL), plazoDias: "", proyectoId: "", rpId: "" }))
+  const [form, setForm] = useState({ objeto: "", modalidad: "CONTRATACION_DIRECTA", valorContrato: "", terceroId: "", estructuradorId: "", vigencia: String(ANIO_ACTUAL), plazoDias: "" })
+  useResetTrasExito(proyState, () => setForm({ objeto: "", modalidad: "CONTRATACION_DIRECTA", valorContrato: "", terceroId: "", estructuradorId: "", vigencia: String(ANIO_ACTUAL), plazoDias: "" }))
 
   return (
     <div className="grid gap-4">
@@ -121,16 +122,9 @@ export function ContratacionAcciones(props: Props) {
                 <input name="vigencia" type="number" min="2000" max="2100" required value={form.vigencia} onChange={(e) => setForm({ ...form, vigencia: e.target.value })} className={INPUT} />
                 <input name="plazoDias" type="number" min="1" placeholder="Plazo (días, opcional)" value={form.plazoDias} onChange={(e) => setForm({ ...form, plazoDias: e.target.value })} className={INPUT} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <select name="proyectoId" value={form.proyectoId} onChange={(e) => setForm({ ...form, proyectoId: e.target.value })} className={INPUT}>
-                  <option value="">— Proyecto (opcional) —</option>
-                  {proyectos.map((p) => (<option key={p.id} value={p.id}>{p.etiqueta}</option>))}
-                </select>
-                <select name="rpId" value={form.rpId} onChange={(e) => setForm({ ...form, rpId: e.target.value })} className={INPUT}>
-                  <option value="">— RP (opcional) —</option>
-                  {rps.map((r) => (<option key={r.id} value={r.id}>{r.etiqueta}</option>))}
-                </select>
-              </div>
+              <p className="text-xs text-slate-400">
+                El RP (y el proyecto que financia, si aplica) se registran más adelante en el flujo — antes de suscribir, no al crear el borrador.
+              </p>
               <button type="submit" disabled={proyPend} className={BTN}>{proyPend ? "Creando…" : "Crear contrato (BORRADOR)"}</button>
             </form>
           )}
@@ -154,19 +148,22 @@ export function ContratacionAcciones(props: Props) {
   )
 }
 
-function FilaContrato({ contrato: c, usuarioId, esAdmin, puedeElaborar, puedeRevisarJuridica, puedeConceptoJuridico, puedeAprobar, puedeSupervisar, abogados }: Props & { contrato: ContratoDTO }) {
+function FilaContrato({ contrato: c, usuarioId, esAdmin, puedeElaborar, puedeRevisarJuridica, puedeConceptoJuridico, puedeAprobar, puedeSupervisar, abogados, rpsDisponibles }: Props & { contrato: ContratoDTO }) {
   const [enviarState, enviarAction, enviarPend] = useActionState(enviarRevisionAction, inicial)
   const [asignarState, asignarAction, asignarPend] = useActionState(asignarAbogadoAction, inicial)
   const [responderState, responderAction, responderPend] = useActionState(responderRevisionAction, inicial)
+  const [registrarRpState, registrarRpActionForm, registrarRpPend] = useActionState(registrarRpAction, inicial)
   const [avanzarState, avanzarAction, avanzarPend] = useActionState(avanzarSimpleAction, inicial)
 
   const [contenido, setContenido] = useState("")
   const [observaciones, setObservaciones] = useState("")
   const [abogadoElegido, setAbogadoElegido] = useState("")
+  const [rpElegido, setRpElegido] = useState("")
 
   useResetTrasExito(enviarState, () => setContenido(""))
   useResetTrasExito(responderState, () => setObservaciones(""))
   useResetTrasExito(asignarState, () => setAbogadoElegido(""))
+  useResetTrasExito(registrarRpState, () => setRpElegido(""))
 
   const esMiEstructurado = c.estructuradorId === usuarioId
   const esMiRevision = c.abogadoAsignadoId === usuarioId
@@ -186,6 +183,12 @@ function FilaContrato({ contrato: c, usuarioId, esAdmin, puedeElaborar, puedeRev
         <div className="text-xs text-slate-500">
           Estructurador: <span className="text-slate-700">{c.estructuradorNombre ?? "—"}</span> · Abogado:{" "}
           <span className="text-slate-700">{c.abogadoNombre ?? "sin asignar"}</span>
+          {c.rpNumero && (
+            <>
+              {" "}· RP: <span className="text-slate-700">{c.rpNumero}</span>
+              {c.proyectoCodigo && <> · Proyecto: <span className="text-slate-700">{c.proyectoCodigo}</span></>}
+            </>
+          )}
         </div>
 
         {(c.estado === "BORRADOR" || c.estado === "DEVUELTO_ESTRUCTURACION") && (esAdmin || (puedeElaborar && esMiEstructurado)) && (
@@ -222,6 +225,24 @@ function FilaContrato({ contrato: c, usuarioId, esAdmin, puedeElaborar, puedeRev
         )}
 
         {c.estado === "PERFECCIONADO" && (esAdmin || puedeAprobar) && (
+          rpsDisponibles.length === 0 ? (
+            <p className="text-xs text-slate-400">
+              No hay RP vigentes libres para respaldar este contrato. Expedí uno en Presupuesto (con saldo ≥ ${formatMoneda(c.valorContrato)}) antes de continuar.
+            </p>
+          ) : (
+            <form action={registrarRpActionForm} className="grid gap-2">
+              <input type="hidden" name="contratoId" value={c.id} />
+              <select name="rpId" required value={rpElegido} onChange={(e) => setRpElegido(e.target.value)} className={INPUT}>
+                <option value="" disabled>— Registrar RP (obligatorio antes de suscribir) —</option>
+                {rpsDisponibles.map((r) => (<option key={r.id} value={r.id}>{r.etiqueta}</option>))}
+              </select>
+              <button type="submit" disabled={registrarRpPend} className={BTN}>{registrarRpPend ? "Registrando…" : "Registrar RP"}</button>
+              <Mensaje state={registrarRpState} />
+            </form>
+          )
+        )}
+
+        {c.estado === "RP_REGISTRADO" && (esAdmin || puedeAprobar) && (
           <form action={avanzarAction}>
             <input type="hidden" name="contratoId" value={c.id} />
             <input type="hidden" name="accion" value="suscribir" />

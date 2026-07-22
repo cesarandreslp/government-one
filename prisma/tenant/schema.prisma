@@ -801,9 +801,8 @@ model Proyecto {
   fechaFinPrevista DateTime?
   creadoPor        String?
 
-  hitos     ProyectoHito[]
-  cdps      Cdp[]
-  contratos Contrato[]
+  hitos ProyectoHito[]
+  cdps  Cdp[] // la ejecución financiera (y, transitivamente, los contratos vía Cdp→Rp→Contrato) cuelga de aquí
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -878,6 +877,7 @@ enum EstadoContrato {
   EN_REVISION_JURIDICA
   DEVUELTO_ESTRUCTURACION
   PERFECCIONADO
+  RP_REGISTRADO
   SUSCRITO
   EN_EJECUCION
   SUSPENDIDO
@@ -918,10 +918,12 @@ model Contrato {
   abogadoAsignadoId String?
   abogadoAsignado   Usuario? @relation("ContratoAbogado", fields: [abogadoAsignadoId], references: [id])
 
-  proyectoId String?
-  proyecto   Proyecto? @relation(fields: [proyectoId], references: [id])
-  rpId       String?
-  rp         Rp?       @relation(fields: [rpId], references: [id])
+  // Sin proyectoId propio a propósito: el proyecto (si el contrato financia uno) se deriva
+  // SIEMPRE de Contrato → Rp → Cdp → Proyecto — esa cadena es la que ya alimenta el seguimiento
+  // financiero real (ejecucionProyecto). Un campo separado aquí podría desalinearse del RP real
+  // y romper el seguimiento sin que nadie lo note.
+  rpId String? // obligatorio en la práctica desde RP_REGISTRADO en adelante (ver flujo.ts)
+  rp   Rp?     @relation(fields: [rpId], references: [id])
 
   fechaSuscripcion DateTime?
   creadoPor        String?

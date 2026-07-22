@@ -47,8 +47,6 @@ export async function crearContratoAction(_prev: ConState, formData: FormData): 
   const vigencia = Number.parseInt(String(formData.get("vigencia") ?? ""), 10)
   const plazoDiasRaw = String(formData.get("plazoDias") ?? "").trim()
   const plazoDias = plazoDiasRaw === "" ? null : Number.parseInt(plazoDiasRaw, 10)
-  const proyectoId = String(formData.get("proyectoId") ?? "").trim() || null
-  const rpId = String(formData.get("rpId") ?? "").trim() || null
 
   if (!objeto) return { ok: false, error: "El objeto es obligatorio." }
   if (!MODALIDADES.includes(modalidad)) return { ok: false, error: "Modalidad inválida." }
@@ -68,7 +66,7 @@ export async function crearContratoAction(_prev: ConState, formData: FormData): 
       return tx.contrato.create({
         data: {
           numero, vigencia, objeto, modalidad: modalidad as never, valorContrato, plazoDias,
-          terceroId, estructuradorId, proyectoId, rpId, creadoPor: ctx.sesion.usuarioId,
+          terceroId, estructuradorId, creadoPor: ctx.sesion.usuarioId,
         },
       })
     })
@@ -162,6 +160,37 @@ export async function responderRevisionAction(_prev: ConState, formData: FormDat
     return { ok: true, mensaje: `${contrato.numero} → ${destino}.` }
   } catch {
     return { ok: false, error: "Error al registrar la revisión." }
+  }
+}
+
+export async function registrarRpAction(_prev: ConState, formData: FormData): Promise<ConState> {
+  const ctx = await requerirFuncionario()
+  const contratoId = String(formData.get("contratoId") ?? "").trim()
+  const rpId = String(formData.get("rpId") ?? "").trim()
+  if (!contratoId || !rpId) return { ok: false, error: "Selecciona el contrato y el RP." }
+
+  const contrato = await ctx.db.contrato.findUnique({ where: { id: contratoId } })
+  if (!contrato) return { ok: false, error: "Contrato no encontrado." }
+
+  const actor = await construirActor(ctx)
+  const bloqueo = puedeAvanzarContrato(contrato, contrato.estado as EstadoContrato, "RP_REGISTRADO", actor)
+  if (bloqueo) return { ok: false, error: bloqueo }
+
+  // Respaldo presupuestal real (Art. 71 Decreto 111/1996): el RP debe existir, estar vigente y
+  // cubrir el valor del contrato — sin esto no hay compromiso presupuestal válido.
+  const rp = await ctx.db.rp.findUnique({ where: { id: rpId } })
+  if (!rp) return { ok: false, error: "RP no encontrado." }
+  if (rp.estado !== "VIGENTE") return { ok: false, error: `El ${rp.numero} no está vigente.` }
+  if (Number(rp.valor) < Number(contrato.valorContrato)) {
+    return { ok: false, error: `El ${rp.numero} ($${Number(rp.valor).toLocaleString()}) no cubre el valor del contrato ($${Number(contrato.valorContrato).toLocaleString()}).` }
+  }
+
+  try {
+    await ctx.db.contrato.update({ where: { id: contratoId }, data: { estado: "RP_REGISTRADO", rpId } })
+    revalidatePath("/admin/contratacion")
+    return { ok: true, mensaje: `${rp.numero} registrado en ${contrato.numero}.` }
+  } catch {
+    return { ok: false, error: "Error al registrar el RP." }
   }
 }
 
