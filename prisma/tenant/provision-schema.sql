@@ -60,6 +60,9 @@ CREATE TYPE "EstadoDocPresupuestal" AS ENUM ('VIGENTE', 'ANULADO');
 -- CreateEnum
 CREATE TYPE "MedioPago" AS ENUM ('TRANSFERENCIA', 'CHEQUE', 'EFECTIVO', 'OTRO');
 
+-- CreateEnum
+CREATE TYPE "ProyectoEstado" AS ENUM ('FORMULACION', 'EJECUCION', 'SUSPENDIDO', 'CERRADO');
+
 -- CreateTable
 CREATE TABLE "dependencias" (
     "id" TEXT NOT NULL,
@@ -386,6 +389,7 @@ CREATE TABLE "psp_cdps" (
     "valor" DECIMAL(18,2) NOT NULL,
     "objeto" TEXT NOT NULL,
     "estado" "EstadoDocPresupuestal" NOT NULL DEFAULT 'VIGENTE',
+    "proyectoId" TEXT,
     "creadoPor" TEXT,
     "anuladoEn" TIMESTAMP(3),
     "anuladoPor" TEXT,
@@ -482,6 +486,66 @@ CREATE TABLE "psp_pagos" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "psp_pagos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "bp_proyecto_consecutivos" (
+    "id" TEXT NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "ultimo" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "bp_proyecto_consecutivos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "bp_proyectos" (
+    "id" TEXT NOT NULL,
+    "codigo" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "vigencia" INTEGER NOT NULL,
+    "dependenciaId" TEXT NOT NULL,
+    "estado" "ProyectoEstado" NOT NULL DEFAULT 'FORMULACION',
+    "valorTotal" DECIMAL(18,2),
+    "fechaInicio" TIMESTAMP(3),
+    "fechaFinPrevista" TIMESTAMP(3),
+    "creadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "bp_proyectos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "bp_proyecto_hitos" (
+    "id" TEXT NOT NULL,
+    "proyectoId" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "descripcion" TEXT,
+    "pesoPorcentual" DECIMAL(5,2) NOT NULL,
+    "avancePorcentual" DECIMAL(5,2) NOT NULL DEFAULT 0,
+    "fechaProgramada" TIMESTAMP(3),
+    "fechaReporte" TIMESTAMP(3),
+    "reportadoPor" TEXT,
+    "evidenciaUrl" TEXT,
+    "observacion" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "bp_proyecto_hitos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "bp_proyecto_hito_reportes" (
+    "id" TEXT NOT NULL,
+    "hitoId" TEXT NOT NULL,
+    "avancePorcentual" DECIMAL(5,2) NOT NULL,
+    "evidenciaUrl" TEXT,
+    "observacion" TEXT,
+    "reportadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "bp_proyecto_hito_reportes_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -614,6 +678,9 @@ CREATE UNIQUE INDEX "psp_cdp_consecutivos_vigencia_key" ON "psp_cdp_consecutivos
 CREATE UNIQUE INDEX "psp_cdps_numero_key" ON "psp_cdps"("numero");
 
 -- CreateIndex
+CREATE INDEX "psp_cdps_proyectoId_idx" ON "psp_cdps"("proyectoId");
+
+-- CreateIndex
 CREATE INDEX "psp_cdps_rubroId_vigencia_idx" ON "psp_cdps"("rubroId", "vigencia");
 
 -- CreateIndex
@@ -648,6 +715,24 @@ CREATE UNIQUE INDEX "psp_pagos_comprobanteId_key" ON "psp_pagos"("comprobanteId"
 
 -- CreateIndex
 CREATE INDEX "psp_pagos_obligacionId_idx" ON "psp_pagos"("obligacionId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "bp_proyecto_consecutivos_vigencia_key" ON "bp_proyecto_consecutivos"("vigencia");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "bp_proyectos_codigo_key" ON "bp_proyectos"("codigo");
+
+-- CreateIndex
+CREATE INDEX "bp_proyectos_dependenciaId_idx" ON "bp_proyectos"("dependenciaId");
+
+-- CreateIndex
+CREATE INDEX "bp_proyectos_vigencia_idx" ON "bp_proyectos"("vigencia");
+
+-- CreateIndex
+CREATE INDEX "bp_proyecto_hitos_proyectoId_idx" ON "bp_proyecto_hitos"("proyectoId");
+
+-- CreateIndex
+CREATE INDEX "bp_proyecto_hito_reportes_hitoId_idx" ON "bp_proyecto_hito_reportes"("hitoId");
 
 -- AddForeignKey
 ALTER TABLE "dependencias" ADD CONSTRAINT "dependencias_padreId_fkey" FOREIGN KEY ("padreId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -719,6 +804,9 @@ ALTER TABLE "psp_apropiaciones" ADD CONSTRAINT "psp_apropiaciones_rubroId_fkey" 
 ALTER TABLE "psp_cdps" ADD CONSTRAINT "psp_cdps_rubroId_fkey" FOREIGN KEY ("rubroId") REFERENCES "psp_rubros"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "psp_cdps" ADD CONSTRAINT "psp_cdps_proyectoId_fkey" FOREIGN KEY ("proyectoId") REFERENCES "bp_proyectos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "psp_rps" ADD CONSTRAINT "psp_rps_cdpId_fkey" FOREIGN KEY ("cdpId") REFERENCES "psp_cdps"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -732,4 +820,13 @@ ALTER TABLE "psp_pagos" ADD CONSTRAINT "psp_pagos_obligacionId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "psp_pagos" ADD CONSTRAINT "psp_pagos_comprobanteId_fkey" FOREIGN KEY ("comprobanteId") REFERENCES "cp_comprobantes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "bp_proyectos" ADD CONSTRAINT "bp_proyectos_dependenciaId_fkey" FOREIGN KEY ("dependenciaId") REFERENCES "dependencias"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "bp_proyecto_hitos" ADD CONSTRAINT "bp_proyecto_hitos_proyectoId_fkey" FOREIGN KEY ("proyectoId") REFERENCES "bp_proyectos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "bp_proyecto_hito_reportes" ADD CONSTRAINT "bp_proyecto_hito_reportes_hitoId_fkey" FOREIGN KEY ("hitoId") REFERENCES "bp_proyecto_hitos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

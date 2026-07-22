@@ -62,6 +62,7 @@ model Dependencia {
   gdSeries  GdSerie[]
   radicados Radicado[]
   pqrsds    Pqrsd[]
+  proyectos Proyecto[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -621,6 +622,9 @@ model Cdp {
   objeto   String
   estado   EstadoDocPresupuestal @default(VIGENTE)
 
+  proyectoId String?
+  proyecto   Proyecto? @relation(fields: [proyectoId], references: [id])
+
   creadoPor       String?
   anuladoEn       DateTime?
   anuladoPor      String?
@@ -630,6 +634,8 @@ model Cdp {
   updatedAt DateTime @updatedAt
 
   rps Rp[]
+
+  @@index([proyectoId])
 
   @@index([rubroId, vigencia])
   @@index([vigencia])
@@ -751,4 +757,96 @@ model Pago {
 
   @@index([obligacionId])
   @@map("psp_pagos")
+}
+
+// ───────────────────── Módulo: BANCO DE PROYECTOS (financiera vs. física) ─────────────────────
+// El diferenciador: ejecución FINANCIERA (derivada de CDP→RP→Obligación→Pago con proyectoId) vs.
+// ejecución FÍSICA (independiente del dinero, por hitos ponderados reportados por el supervisor).
+// La BRECHA entre ambas es la señal de riesgo (ej. anticipo pagado 50%/obra en campo 0%).
+// Sin Contratación todavía (viene después en el orden) — la física se reporta por hito directo
+// del proyecto, no por actividad de contrato; se revisará cuando exista Contratación.
+
+enum ProyectoEstado {
+  FORMULACION
+  EJECUCION
+  SUSPENDIDO
+  CERRADO
+}
+
+/// Contador atómico del consecutivo de proyectos, por vigencia.
+model ProyectoConsecutivo {
+  id       String @id @default(cuid())
+  vigencia Int    @unique
+  ultimo   Int    @default(0)
+
+  @@map("bp_proyecto_consecutivos")
+}
+
+model Proyecto {
+  id            String         @id @default(cuid())
+  codigo        String         @unique // "PRY-2026-001"
+  nombre        String
+  descripcion   String?
+  vigencia      Int
+  dependenciaId String
+  dependencia   Dependencia    @relation(fields: [dependenciaId], references: [id])
+  estado        ProyectoEstado @default(FORMULACION)
+  valorTotal    Decimal?       @db.Decimal(18, 2) // presupuesto total planeado (informativo)
+
+  fechaInicio      DateTime?
+  fechaFinPrevista DateTime?
+  creadoPor        String?
+
+  hitos ProyectoHito[]
+  cdps  Cdp[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dependenciaId])
+  @@index([vigencia])
+  @@map("bp_proyectos")
+}
+
+/// Hito del proyecto — unidad de avance FÍSICO, ponderado (Σ pesoPorcentual tiende a 100).
+model ProyectoHito {
+  id               String   @id @default(cuid())
+  proyectoId       String
+  proyecto         Proyecto @relation(fields: [proyectoId], references: [id], onDelete: Cascade)
+  nombre           String
+  descripcion      String?
+  pesoPorcentual   Decimal  @db.Decimal(5, 2)
+  avancePorcentual Decimal  @default(0) @db.Decimal(5, 2)
+
+  fechaProgramada DateTime?
+  // Snapshot del ÚLTIMO reporte (lectura rápida). El histórico auditable vive en los reportes.
+  fechaReporte    DateTime?
+  reportadoPor    String?
+  evidenciaUrl    String?
+  observacion     String?
+
+  reportes ProyectoHitoReporte[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([proyectoId])
+  @@map("bp_proyecto_hitos")
+}
+
+/// Histórico auditable de reportes de avance físico — quién reportó qué, cuándo, con qué
+/// evidencia. Insert-only (no se edita ni se borra), trazabilidad ante entes de control.
+model ProyectoHitoReporte {
+  id           String       @id @default(cuid())
+  hitoId       String
+  hito         ProyectoHito @relation(fields: [hitoId], references: [id], onDelete: Cascade)
+  avancePorcentual Decimal  @db.Decimal(5, 2)
+  evidenciaUrl String?
+  observacion  String?
+  reportadoPor String?
+
+  createdAt DateTime @default(now())
+
+  @@index([hitoId])
+  @@map("bp_proyecto_hito_reportes")
 }
