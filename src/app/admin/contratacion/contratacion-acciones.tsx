@@ -169,7 +169,7 @@ function FilaContrato({ contrato: c, usuarioId, esAdmin, puedeElaborar, puedeRev
         <div>
           <span className="font-mono text-xs text-slate-500">{c.numero}</span>
           <span className="ml-2 font-medium text-slate-800">{c.objeto}</span>
-          <span className="ml-2 text-xs text-slate-400">{c.tercero} · ${c.valorContrato.toLocaleString()}</span>
+          <span className="ml-2 text-xs text-slate-400">{c.tercero} · ${c.valorContrato.toLocaleString("es-CO")}</span>
         </div>
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_COLOR[c.estado] ?? "bg-slate-100 text-slate-700"}`}>{c.estado}</span>
       </summary>
@@ -254,7 +254,7 @@ function FilaContrato({ contrato: c, usuarioId, esAdmin, puedeElaborar, puedeRev
             <ul className="space-y-1">
               {c.versiones.map((v) => (
                 <li key={v.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                  v{v.numeroVersion} · {v.tipo} {v.aprobado !== null ? (v.aprobado ? "· aprobado" : "· devuelto") : ""} · {new Date(v.createdAt).toLocaleString("es-CO")}
+                  v{v.numeroVersion} · {v.tipo} {v.aprobado !== null ? (v.aprobado ? "· aprobado" : "· devuelto") : ""} · {v.createdAt.slice(0, 16).replace("T", " ")}
                   {v.observaciones && <div className="mt-1 text-slate-500">{v.observaciones}</div>}
                 </li>
               ))}
