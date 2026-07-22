@@ -6,7 +6,7 @@ import { leerSesionTenant } from "@/lib/tenant-session-cookies"
 import type { TenantSessionPayload } from "@/lib/tenant-session"
 import { tieneCapacidad } from "@/lib/dominio/acceso"
 
-const ROLES_ADMIN_TENANT = ["ADMIN", "SUPER_ADMIN"]
+export const ROLES_ADMIN_TENANT = ["ADMIN", "SUPER_ADMIN"]
 
 // Data Access Layer del TENANT: cerradura de autorización cerca de los datos para /admin/*.
 // Distinta del DAL de plataforma (dal.ts, que mira la sesión del superadmin en la meta-DB).

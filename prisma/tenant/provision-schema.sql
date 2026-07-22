@@ -63,6 +63,15 @@ CREATE TYPE "MedioPago" AS ENUM ('TRANSFERENCIA', 'CHEQUE', 'EFECTIVO', 'OTRO');
 -- CreateEnum
 CREATE TYPE "ProyectoEstado" AS ENUM ('FORMULACION', 'EJECUCION', 'SUSPENDIDO', 'CERRADO');
 
+-- CreateEnum
+CREATE TYPE "ModalidadContratacion" AS ENUM ('LICITACION_PUBLICA', 'SELECCION_ABREVIADA', 'CONCURSO_MERITOS', 'CONTRATACION_DIRECTA', 'MINIMA_CUANTIA');
+
+-- CreateEnum
+CREATE TYPE "EstadoContrato" AS ENUM ('BORRADOR', 'EN_REVISION_JURIDICA', 'DEVUELTO_ESTRUCTURACION', 'PERFECCIONADO', 'SUSCRITO', 'EN_EJECUCION', 'SUSPENDIDO', 'TERMINADO', 'INCUMPLIDO', 'LIQUIDADO');
+
+-- CreateEnum
+CREATE TYPE "TipoVersionContrato" AS ENUM ('BORRADOR_ESTRUCTURACION', 'REVISION_JURIDICA');
+
 -- CreateTable
 CREATE TABLE "dependencias" (
     "id" TEXT NOT NULL,
@@ -548,6 +557,53 @@ CREATE TABLE "bp_proyecto_hito_reportes" (
     CONSTRAINT "bp_proyecto_hito_reportes_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "con_consecutivos" (
+    "id" TEXT NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "ultimo" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "con_consecutivos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "con_contratos" (
+    "id" TEXT NOT NULL,
+    "numero" TEXT NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "objeto" TEXT NOT NULL,
+    "modalidad" "ModalidadContratacion" NOT NULL,
+    "valorContrato" DECIMAL(18,2) NOT NULL,
+    "plazoDias" INTEGER,
+    "estado" "EstadoContrato" NOT NULL DEFAULT 'BORRADOR',
+    "terceroId" TEXT NOT NULL,
+    "estructuradorId" TEXT,
+    "abogadoAsignadoId" TEXT,
+    "proyectoId" TEXT,
+    "rpId" TEXT,
+    "fechaSuscripcion" TIMESTAMP(3),
+    "creadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "con_contratos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "con_contrato_versiones" (
+    "id" TEXT NOT NULL,
+    "contratoId" TEXT NOT NULL,
+    "numeroVersion" INTEGER NOT NULL,
+    "tipo" "TipoVersionContrato" NOT NULL,
+    "contenido" TEXT,
+    "aprobado" BOOLEAN,
+    "observaciones" TEXT,
+    "autorId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "con_contrato_versiones_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "dependencias_codigo_key" ON "dependencias"("codigo");
 
@@ -734,6 +790,27 @@ CREATE INDEX "bp_proyecto_hitos_proyectoId_idx" ON "bp_proyecto_hitos"("proyecto
 -- CreateIndex
 CREATE INDEX "bp_proyecto_hito_reportes_hitoId_idx" ON "bp_proyecto_hito_reportes"("hitoId");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "con_consecutivos_vigencia_key" ON "con_consecutivos"("vigencia");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "con_contratos_numero_key" ON "con_contratos"("numero");
+
+-- CreateIndex
+CREATE INDEX "con_contratos_terceroId_idx" ON "con_contratos"("terceroId");
+
+-- CreateIndex
+CREATE INDEX "con_contratos_vigencia_idx" ON "con_contratos"("vigencia");
+
+-- CreateIndex
+CREATE INDEX "con_contratos_estructuradorId_idx" ON "con_contratos"("estructuradorId");
+
+-- CreateIndex
+CREATE INDEX "con_contratos_abogadoAsignadoId_idx" ON "con_contratos"("abogadoAsignadoId");
+
+-- CreateIndex
+CREATE INDEX "con_contrato_versiones_contratoId_idx" ON "con_contrato_versiones"("contratoId");
+
 -- AddForeignKey
 ALTER TABLE "dependencias" ADD CONSTRAINT "dependencias_padreId_fkey" FOREIGN KEY ("padreId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -829,4 +906,22 @@ ALTER TABLE "bp_proyecto_hitos" ADD CONSTRAINT "bp_proyecto_hitos_proyectoId_fke
 
 -- AddForeignKey
 ALTER TABLE "bp_proyecto_hito_reportes" ADD CONSTRAINT "bp_proyecto_hito_reportes_hitoId_fkey" FOREIGN KEY ("hitoId") REFERENCES "bp_proyecto_hitos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "con_contratos" ADD CONSTRAINT "con_contratos_terceroId_fkey" FOREIGN KEY ("terceroId") REFERENCES "cp_terceros"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "con_contratos" ADD CONSTRAINT "con_contratos_estructuradorId_fkey" FOREIGN KEY ("estructuradorId") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "con_contratos" ADD CONSTRAINT "con_contratos_abogadoAsignadoId_fkey" FOREIGN KEY ("abogadoAsignadoId") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "con_contratos" ADD CONSTRAINT "con_contratos_proyectoId_fkey" FOREIGN KEY ("proyectoId") REFERENCES "bp_proyectos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "con_contratos" ADD CONSTRAINT "con_contratos_rpId_fkey" FOREIGN KEY ("rpId") REFERENCES "psp_rps"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "con_contrato_versiones" ADD CONSTRAINT "con_contrato_versiones_contratoId_fkey" FOREIGN KEY ("contratoId") REFERENCES "con_contratos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

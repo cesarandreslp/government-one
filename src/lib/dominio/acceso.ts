@@ -67,6 +67,32 @@ export async function usuarioAusente(db: TenantDB, usuarioId: string, ahora: Dat
   return a !== null
 }
 
+/**
+ * Usuarios (id + nombre) que hoy tienen una capacidad dada, vía algún cargo vigente. Recorre
+ * TODOS los vínculos vigentes (no hay índice sobre el JSON de grants) — uso pensado para
+ * selectores admin (ej. "asignar abogado"), no para rutas de alto tráfico.
+ */
+export async function usuariosConCapacidad(
+  db: Pick<PrismaClient, "vinculacionCargo"> & { usuario: PrismaClient["usuario"] },
+  modulo: string,
+  capacidad: string,
+  ahora: Date = new Date(),
+): Promise<Array<{ id: string; nombre: string; apellido: string }>> {
+  const vinculos = await db.vinculacionCargo.findMany({
+    where: whereVigente(ahora),
+    include: { cargo: true, usuario: { select: { id: true, nombre: true, apellido: true, activo: true } } },
+  })
+  const vistos = new Map<string, { id: string; nombre: string; apellido: string }>()
+  for (const v of vinculos) {
+    if (!v.cargo.activo || !v.usuario.activo) continue
+    const grants = (v.cargo.grants ?? {}) as unknown as Grants
+    if (grantsIncluyen(grants, modulo, capacidad)) {
+      vistos.set(v.usuario.id, { id: v.usuario.id, nombre: v.usuario.nombre, apellido: v.usuario.apellido })
+    }
+  }
+  return [...vistos.values()]
+}
+
 export type ViaEjercicio = "ENCARGADO" | "TITULAR" | "PROVISIONAL"
 export interface Ejerciente {
   usuarioId: string

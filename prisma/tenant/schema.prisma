@@ -111,6 +111,8 @@ model Usuario {
   radicados        Radicado[]
   pqrsdAsignadas   Pqrsd[]            @relation("PqrsdAsignada")
   pqrsdRespondidas Pqrsd[]            @relation("PqrsdRespondida")
+  contratosEstructurados Contrato[]   @relation("ContratoEstructurador")
+  contratosRevisados     Contrato[]   @relation("ContratoAbogado")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -462,8 +464,9 @@ model Tercero {
   telefono      String?
   activo        Boolean       @default(true)
 
-  asientos Asiento[]
-  rps      Rp[]
+  asientos  Asiento[]
+  rps       Rp[]
+  contratos Contrato[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -675,6 +678,7 @@ model Rp {
   updatedAt DateTime @updatedAt
 
   obligaciones Obligacion[]
+  contratos    Contrato[]
 
   @@index([cdpId])
   @@map("psp_rps")
@@ -797,8 +801,9 @@ model Proyecto {
   fechaFinPrevista DateTime?
   creadoPor        String?
 
-  hitos ProyectoHito[]
-  cdps  Cdp[]
+  hitos     ProyectoHito[]
+  cdps      Cdp[]
+  contratos Contrato[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -849,4 +854,105 @@ model ProyectoHitoReporte {
 
   @@index([hitoId])
   @@map("bp_proyecto_hito_reportes")
+}
+
+// ───────────────────── Módulo: CONTRATACIÓN (Ley 80/1150) ─────────────────────
+// Máquina de estados con GATING REAL POR PERSONA, no solo por capacidad: la capacidad
+// (contratacion: elaborar/revisar_juridica/concepto_juridico/supervisar/aprobar, ya en el
+// catálogo desde la fundación) dice qué TIPO de acción puede hacer alguien; la asignación
+// (estructuradorId/abogadoAsignadoId) dice si es la persona correcta PARA ESTE contrato — las
+// dos condiciones se exigen juntas (ver src/lib/contratacion/flujo.ts). Portado de personeriabuga
+// (hallazgo explícito: sin el segundo chequeo, cualquiera con la capacidad podía aprobar su
+// propio contrato como si fuera otro actor de la cadena).
+
+enum ModalidadContratacion {
+  LICITACION_PUBLICA
+  SELECCION_ABREVIADA
+  CONCURSO_MERITOS
+  CONTRATACION_DIRECTA
+  MINIMA_CUANTIA
+}
+
+enum EstadoContrato {
+  BORRADOR
+  EN_REVISION_JURIDICA
+  DEVUELTO_ESTRUCTURACION
+  PERFECCIONADO
+  SUSCRITO
+  EN_EJECUCION
+  SUSPENDIDO
+  TERMINADO
+  INCUMPLIDO
+  LIQUIDADO
+}
+
+enum TipoVersionContrato {
+  BORRADOR_ESTRUCTURACION
+  REVISION_JURIDICA
+}
+
+/// Contador atómico del consecutivo de contratos, por vigencia.
+model ContratoConsecutivo {
+  id       String @id @default(cuid())
+  vigencia Int    @unique
+  ultimo   Int    @default(0)
+
+  @@map("con_consecutivos")
+}
+
+model Contrato {
+  id            String                @id @default(cuid())
+  numero        String                @unique // "C-2026-001"
+  vigencia      Int
+  objeto        String
+  modalidad     ModalidadContratacion
+  valorContrato Decimal               @db.Decimal(18, 2)
+  plazoDias     Int?
+  estado        EstadoContrato        @default(BORRADOR)
+
+  terceroId String // contratista
+  tercero   Tercero @relation(fields: [terceroId], references: [id])
+
+  estructuradorId   String?
+  estructurador     Usuario? @relation("ContratoEstructurador", fields: [estructuradorId], references: [id])
+  abogadoAsignadoId String?
+  abogadoAsignado   Usuario? @relation("ContratoAbogado", fields: [abogadoAsignadoId], references: [id])
+
+  proyectoId String?
+  proyecto   Proyecto? @relation(fields: [proyectoId], references: [id])
+  rpId       String?
+  rp         Rp?       @relation(fields: [rpId], references: [id])
+
+  fechaSuscripcion DateTime?
+  creadoPor        String?
+
+  versiones ContratoVersion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([terceroId])
+  @@index([vigencia])
+  @@index([estructuradorId])
+  @@index([abogadoAsignadoId])
+  @@map("con_contratos")
+}
+
+/// Versión insert-only del contenido/revisión — cada borrador de estructuración y cada
+/// respuesta de jurídica queda versionada, nunca se sobreescribe.
+model ContratoVersion {
+  id            String              @id @default(cuid())
+  contratoId    String
+  contrato      Contrato            @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  numeroVersion Int
+  tipo          TipoVersionContrato
+  contenido     String?
+  aprobado      Boolean?
+  observaciones String?
+  autorId       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([contratoId])
+  @@map("con_contrato_versiones")
 }
