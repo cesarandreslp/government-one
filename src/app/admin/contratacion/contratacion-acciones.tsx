@@ -6,6 +6,14 @@ import {
   type ConState,
 } from "./actions"
 
+// Formateador propio (no Intl/toLocaleString): en un componente cliente, ese valor se renderiza
+// tanto en el servidor (SSR) como al hidratar en el navegador, y si el runtime de Node no trae
+// el locale "es-CO" en su ICU (común en serverless con ICU reducido), cada lado formatea distinto
+// y React tira el error de hidratación #418. Un separador de miles manual es idéntico siempre.
+function formatMoneda(n: number): string {
+  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+}
+
 interface Opcion { id: string; etiqueta: string }
 interface Version {
   id: string; numeroVersion: number; tipo: string; aprobado: boolean | null
@@ -169,7 +177,7 @@ function FilaContrato({ contrato: c, usuarioId, esAdmin, puedeElaborar, puedeRev
         <div>
           <span className="font-mono text-xs text-slate-500">{c.numero}</span>
           <span className="ml-2 font-medium text-slate-800">{c.objeto}</span>
-          <span className="ml-2 text-xs text-slate-400">{c.tercero} · ${c.valorContrato.toLocaleString("es-CO")}</span>
+          <span className="ml-2 text-xs text-slate-400">{c.tercero} · ${formatMoneda(c.valorContrato)}</span>
         </div>
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_COLOR[c.estado] ?? "bg-slate-100 text-slate-700"}`}>{c.estado}</span>
       </summary>
