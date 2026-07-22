@@ -1,11 +1,18 @@
 import Link from "next/link"
-import { requerirFuncionario } from "@/lib/dal-tenant"
+import { requerirFuncionario, modulosVisibles, ROLES_ADMIN_TENANT } from "@/lib/dal-tenant"
 import { salirAction } from "@/app/ingresar/actions"
+import { MODULOS } from "@/lib/modulos"
 
 // Cerradura real de /admin/* del TENANT (cerca de los datos, no solo en el proxy). Resuelve el
-// tenant por host y exige sesión de funcionario válida para ESE tenant.
+// tenant por host y exige sesión de funcionario válida para ESE tenant. El nav es GOBERNADO:
+// muestra solo los módulos disponibles+asignados al funcionario (el admin ve todos los disponibles).
 export default async function AdminTenantLayout({ children }: { children: React.ReactNode }) {
-  const { tenant, sesion } = await requerirFuncionario()
+  const ctx = await requerirFuncionario()
+  const { tenant, sesion } = ctx
+
+  const esAdmin = ROLES_ADMIN_TENANT.includes(sesion.rol)
+  const visibles = new Set(await modulosVisibles(ctx, MODULOS.map((m) => m.id)))
+  const modulosNav = MODULOS.filter((m) => m.ruta && visibles.has(m.id))
 
   return (
     <div className="flex flex-1 flex-col bg-slate-50">
@@ -18,28 +25,17 @@ export default async function AdminTenantLayout({ children }: { children: React.
               </span>
               <span className="text-sm font-semibold tracking-tight text-slate-900">{tenant.nombre}</span>
             </Link>
-            <nav className="flex items-center gap-4 text-sm">
-              <Link href="/admin/estructura" className="text-slate-600 hover:text-slate-900">
-                Estructura
-              </Link>
-              <Link href="/admin/gd" className="text-slate-600 hover:text-slate-900">
-                Gestión Documental
-              </Link>
-              <Link href="/admin/vu" className="text-slate-600 hover:text-slate-900">
-                Ventanilla Única
-              </Link>
-              <Link href="/admin/contabilidad" className="text-slate-600 hover:text-slate-900">
-                Contabilidad
-              </Link>
-              <Link href="/admin/presupuesto" className="text-slate-600 hover:text-slate-900">
-                Presupuesto
-              </Link>
-              <Link href="/admin/proyectos" className="text-slate-600 hover:text-slate-900">
-                Proyectos
-              </Link>
-              <Link href="/admin/contratacion" className="text-slate-600 hover:text-slate-900">
-                Contratación
-              </Link>
+            <nav className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              {esAdmin && (
+                <Link href="/admin/estructura" className="text-slate-600 hover:text-slate-900">
+                  Estructura
+                </Link>
+              )}
+              {modulosNav.map((m) => (
+                <Link key={m.id} href={m.ruta!} className="text-slate-600 hover:text-slate-900">
+                  {m.nombre}
+                </Link>
+              ))}
             </nav>
           </div>
           <div className="flex items-center gap-4">

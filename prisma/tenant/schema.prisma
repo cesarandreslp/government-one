@@ -52,6 +52,9 @@ model Dependencia {
   /// Servicio compartido/transversal (Jurídica, Contratación) que sirve a TODAS las dependencias.
   esServicioCompartido Boolean @default(false)
   activa      Boolean         @default(true)
+  /// Módulos ASIGNADOS a esta dependencia por el admin del tenant (array de moduloId). Un
+  /// funcionario solo opera un módulo si está asignado a su dependencia. Ver src/lib/modulos.ts.
+  modulos     Json            @default("[]")
 
   // Jerarquía
   padreId String?

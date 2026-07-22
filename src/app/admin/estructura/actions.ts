@@ -115,3 +115,21 @@ export async function crearVinculacionAction(_prev: AccionState, formData: FormD
     return { ok: false, error: "Error al crear el vínculo (¿funcionario y cargo válidos?)." }
   }
 }
+
+/** Asigna los MÓDULOS que maneja una dependencia (solo los disponibles para el tenant). */
+export async function asignarModulosDependenciaAction(_prev: AccionState, formData: FormData): Promise<AccionState> {
+  const { db, tenant } = await requerirRolTenant(ADMINS)
+  const dependenciaId = String(formData.get("dependenciaId") ?? "").trim()
+  if (!dependenciaId) return { ok: false, error: "Falta la dependencia." }
+
+  const { moduloDisponible } = await import("@/lib/modulos")
+  const modulos = formData.getAll("modulos").map(String).filter((m) => moduloDisponible(m, tenant.modulosContratados))
+
+  try {
+    await db.dependencia.update({ where: { id: dependenciaId }, data: { modulos } })
+    revalidatePath("/admin/estructura")
+    return { ok: true, mensaje: "Módulos de la dependencia actualizados." }
+  } catch {
+    return { ok: false, error: "Error al asignar módulos a la dependencia." }
+  }
+}

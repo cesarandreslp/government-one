@@ -551,3 +551,32 @@ recorrió BORRADOR→…→EN_EJECUCION en la UI real). Reconciliación de bitá
 `contabilidad`, `presupuesto`, `proyectos`, `contratacion` (+ base A–D). **Siguiente** (de la memoria): evaluar
 migrar Banco de Proyectos a Contrato→Actividad ahora que Contratación existe; luego Nómina / Tesorería /
 Reportes de control (candidatos maduros a portar de personeriabuga).
+
+## Progreso — Gobernanza de módulos: flujo de actores (2026-07-22)
+
+El usuario aclaró el modelo de actores (y corrigió que veníamos probando todo como el SUPER_ADMIN, un
+atajo): **superadmin** crea el tenant + su admin + **habilita los módulos contratados**; **admin del
+tenant** crea dependencias + **asigna módulos a cada una**; la **dependencia de RRHH** crea funcionarios
+con cargos y opera nómina + actos administrativos. Ni el superadmin ni el admin hacen la operación diaria.
+
+**Paso 1 — gobernanza de módulos (backbone del flujo), 3 capas de acceso para no-admins:**
+- `src/lib/modulos.ts` — catálogo NACIONAL de módulos (primitivo): base (siempre activo: `gestion_documental`,
+  `ventanilla_unica`) vs contratables (contabilidad/presupuesto/tesorería/banco_proyectos/contratación/nómina),
+  con `dependeDe` y `ruta`. `moduloDisponible(id, contratados)`.
+- **Capa 1 — contratado por el tenant:** `Tenant.modulosContratados Json` (meta-DB, migración
+  `add_modulos_gobernanza`) — lo habilita el superadmin. `contextoTenant` lo expone. UI en `/superadmin/tenants`
+  (checkboxes de módulos contratables por tenant, `modulos-tenant.tsx` + `actualizarModulosTenantAction`).
+- **Capa 2 — asignado a la dependencia:** `Dependencia.modulos Json` (BD tenant) — lo asigna el admin del
+  tenant. UI en `/admin/estructura` (checkboxes por dependencia, `modulos-dependencia.tsx` +
+  `asignarModulosDependenciaAction`), solo con los módulos disponibles del tenant.
+- **Capa 3 — capacidad del cargo:** `tieneCapacidad` (ya existía).
+- `dal-tenant.funcionarioPuede` reescrito: **capa 1 aplica a TODOS** (nadie usa un módulo no contratado, ni el
+  admin); el admin del tenant omite capas 2 y 3; el resto exige las 3. `modulosVisibles()` para el nav.
+  `admin/layout.tsx` ahora es **nav gobernado** (muestra solo los módulos visibles; Estructura solo para admin).
+- `scripts/set-tenant-modulos.ts` (stopgap = lo que hace el superadmin). Demo contrató
+  `[contabilidad, presupuesto, banco_proyectos, contratacion]` para no romperse (base siempre on).
+
+**Verificación:** `tsc`/`eslint` limpios. Pendiente: pase en navegador (demo sigue operando + asignar módulos a
+una dependencia). **Siguiente:** Paso 2 (RRHH/Gestión Humana: niveles de cargo + actos administrativos +
+creación de funcionarios con credencial) y Paso 3 (Nómina). La verificación PLENA del gating de 3 capas para
+no-admins llega con Paso 2 (funcionarios con login).

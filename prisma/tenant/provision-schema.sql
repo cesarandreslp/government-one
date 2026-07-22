@@ -1,5 +1,3 @@
-Loaded Prisma config from prisma.config.ts.
-
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
@@ -80,6 +78,7 @@ CREATE TABLE "dependencias" (
     "tipo" "DependenciaTipo" NOT NULL DEFAULT 'SECRETARIA',
     "esServicioCompartido" BOOLEAN NOT NULL DEFAULT false,
     "activa" BOOLEAN NOT NULL DEFAULT true,
+    "modulos" JSONB NOT NULL DEFAULT '[]',
     "padreId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,

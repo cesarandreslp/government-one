@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache"
 import { provisionTenant } from "@/lib/provisioning/provision"
 import { requerirAdmin } from "@/lib/dal"
+import { prismaMeta } from "@/lib/prisma-meta"
+import { MODULOS_CONTRATABLES } from "@/lib/modulos"
 
 export interface ProvisionState {
   ok?: boolean
@@ -38,5 +40,28 @@ export async function provisionTenantAction(
     return { ok: true, mensaje: `Tenant "${nombre}" provisionado (Neon ${r.neonProjectId}).` }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Error al provisionar el tenant." }
+  }
+}
+
+export interface ModulosState {
+  ok?: boolean
+  error?: string
+}
+
+/** Habilita/deshabilita los módulos CONTRATADOS de un tenant (solo módulos contratables). */
+export async function actualizarModulosTenantAction(_prev: ModulosState, formData: FormData): Promise<ModulosState> {
+  await requerirAdmin()
+  const tenantId = String(formData.get("tenantId") ?? "").trim()
+  if (!tenantId) return { ok: false, error: "Falta el tenant." }
+
+  const validos = new Set(MODULOS_CONTRATABLES.map((m) => m.id))
+  const modulos = formData.getAll("modulos").map(String).filter((m) => validos.has(m))
+
+  try {
+    await prismaMeta.tenant.update({ where: { id: tenantId }, data: { modulosContratados: modulos } })
+    revalidatePath("/superadmin/tenants")
+    return { ok: true }
+  } catch {
+    return { ok: false, error: "Error al actualizar los módulos." }
   }
 }

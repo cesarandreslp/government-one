@@ -2,7 +2,9 @@ import { requerirRolTenant } from "@/lib/dal-tenant"
 import { capacidadesEfectivas, quienEjerce } from "@/lib/dominio/acceso"
 import { hayPlantilla } from "@/lib/dominio/plantillas-cargo"
 import type { Grants } from "@/lib/dominio/capacidades"
+import { MODULOS, moduloDisponible } from "@/lib/modulos"
 import { EstructuraAcciones } from "./estructura-acciones"
+import { ModulosDependencia } from "./modulos-dependencia"
 
 export const dynamic = "force-dynamic"
 
@@ -48,6 +50,9 @@ export default async function EstructuraPage() {
   const arbol = [...dependencias].sort((a, b) => profundidad(a.id) - profundidad(b.id) || a.codigo.localeCompare(b.codigo))
 
   const estructuraVacia = dependencias.length === 0
+
+  // Módulos disponibles para el tenant (base + contratados) — para asignarlos a las dependencias.
+  const modulosDisponibles = MODULOS.filter((m) => moduloDisponible(m.id, tenant.modulosContratados)).map((m) => ({ id: m.id, nombre: m.nombre }))
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -113,6 +118,11 @@ export default async function EstructuraPage() {
                   })}
                 </ul>
               )}
+              <ModulosDependencia
+                dependenciaId={d.id}
+                asignados={Array.isArray(d.modulos) ? (d.modulos as string[]) : []}
+                disponibles={modulosDisponibles}
+              />
             </div>
           ))}
         </div>

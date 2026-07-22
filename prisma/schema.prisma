@@ -42,6 +42,10 @@ model Tenant {
   // Secretos por tenant (AES-256-GCM): IA / storage / SMTP / WhatsApp / SECOP
   secretosEncriptados String? @db.Text
 
+  // Módulos CONTRATADOS (habilitados por el superadmin según el contrato). Array de moduloId
+  // (los módulos base están siempre disponibles y no se listan aquí). Ver src/lib/modulos.ts.
+  modulosContratados Json @default("[]")
+
   // Control plane
   schemaVersion   Int                   @default(0) // migraciones aplicadas a su BD
   estadoProvision TenantEstadoProvision @default(CREANDO_NEON)

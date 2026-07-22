@@ -21,6 +21,8 @@ export interface ContextoTenant {
     nombre: string
     tipoEntidad: string
     dominioPrincipal: string
+    /** Módulos contratados (habilitados por el superadmin). Los base están siempre disponibles. */
+    modulosContratados: string[]
   }
   db: PrismaClient
 }
@@ -51,6 +53,7 @@ export const contextoTenant = cache(async (): Promise<ContextoTenant | null> => 
       nombre: tenant.nombre,
       tipoEntidad: tenant.tipoEntidad,
       dominioPrincipal: tenant.dominioPrincipal,
+      modulosContratados: Array.isArray(tenant.modulosContratados) ? (tenant.modulosContratados as string[]) : [],
     },
     db: tenantClientDesde(decrypt(tenant.databaseUrl)),
   }

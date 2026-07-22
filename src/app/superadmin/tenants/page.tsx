@@ -1,5 +1,7 @@
 import { prismaMeta } from "@/lib/prisma-meta"
 import { ProvisionForm } from "./provision-form"
+import { ModulosTenant } from "./modulos-tenant"
+import { MODULOS_CONTRATABLES } from "@/lib/modulos"
 
 export const dynamic = "force-dynamic"
 
@@ -28,44 +30,34 @@ export default async function TenantsPage() {
         <ProvisionForm />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Slug</th>
-              <th className="px-4 py-3">Nombre</th>
-              <th className="px-4 py-3">Tipo</th>
-              <th className="px-4 py-3">Dominio</th>
-              <th className="px-4 py-3">Estado</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {tenants.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
-                  Aún no hay tenants. Provisiona el primero arriba.
-                </td>
-              </tr>
-            )}
-            {tenants.map((t) => (
-              <tr key={t.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3 font-medium text-slate-800">{t.slug}</td>
-                <td className="px-4 py-3 text-slate-700">{t.nombre}</td>
-                <td className="px-4 py-3 text-slate-500">{t.tipoEntidad}</td>
-                <td className="px-4 py-3 text-slate-500">{t.dominioPrincipal}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      ESTADO_COLOR[t.estadoProvision] ?? "bg-slate-100 text-slate-700"
-                    }`}
-                  >
-                    {t.estadoProvision}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {tenants.length === 0 && (
+        <p className="rounded-xl border border-slate-200 bg-white p-8 text-center text-slate-400">
+          Aún no hay tenants. Provisiona el primero arriba.
+        </p>
+      )}
+
+      <div className="space-y-4">
+        {tenants.map((t) => (
+          <div key={t.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-medium text-slate-800">{t.nombre}</span>
+              <span className="font-mono text-xs text-slate-400">{t.slug}</span>
+              <span className="text-xs text-slate-500">{t.tipoEntidad}</span>
+              <span className="text-xs text-slate-500">{t.dominioPrincipal}</span>
+              <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_COLOR[t.estadoProvision] ?? "bg-slate-100 text-slate-700"}`}>
+                {t.estadoProvision}
+              </span>
+            </div>
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Módulos contratados</p>
+              <ModulosTenant
+                tenantId={t.id}
+                contratados={Array.isArray(t.modulosContratados) ? (t.modulosContratados as string[]) : []}
+                contratables={MODULOS_CONTRATABLES.map((m) => ({ id: m.id, nombre: m.nombre, categoria: m.categoria }))}
+              />
+            </div>
+          </div>
+        ))}
       </div>
     </main>
   )
