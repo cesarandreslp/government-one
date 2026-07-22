@@ -494,3 +494,60 @@ publicar (pendiente el modelo de micrositio en la BD del tenant).
 **🏁 MÓDULO BASE (Portal Institucional) COMPLETO:** A (estructura organizacional) · B (Gestión Documental) ·
 C (Ventanilla Única) · D (portal público) — los cuatro construidos, con la fundación de dominio cableada
 (capacidades por cargo + ruteo `quienEjerce`) y verificados en vivo en Vercel.
+
+## Progreso — Bloque FINANCIERO/EJECUCIÓN (2026-07-21) — reconciliación de bitácora
+
+> ⚠️ **Nota de proceso:** estos 4 módulos se construyeron y commitearon en turnos que se resumieron
+> durante una interrupción, y **la bitácora no se actualizó en su momento** (la memoria del proyecto SÍ
+> quedó al día — es la fuente de verdad de esta reconciliación). **Verificación: DOBLE — por scripts
+> `verify-*.ts` contra la BD real del tenant demo (motor/lógica) Y por interacción real en el navegador
+> (Claude in Chrome) en producción** (estándar del proyecto, [[verificar-en-vercel-no-local]]). Los detalles
+> por módulo están en la memoria `punto-de-retoma`; aquí el resumen.
+
+Siguen el orden del CLAUDE.md (Financiero → Presupuesto → Banco de proyectos → Contratación), portando los
+patrones ya validados de `personeriabuga` al stack nuevo (Prisma 7, BD por tenant, server actions, gating por
+capacidad `funcionarioPuede`, catálogos nacionales data-driven).
+
+**1) Contabilidad (libro mayor, doble partida)** — commits `491a624`/`4a8116b`/`ffb2ff8`.
+- Tenant schema: `PlanCuenta` (CGC jerárquico), `PeriodoContable`, `Tercero`, `Comprobante`+`Asiento`,
+  `ComprobanteConsecutivo`. CGC = **catálogo nacional** (Res. CGN 533/2015 gobierno), corte operativo curado
+  en `src/lib/contabilidad/cgc.ts`, sembrable por tenant (`aplicarPlanCuentas`, idempotente).
+- Motor: registro de comprobante con validación de **partida doble en servidor** (∑débitos=∑créditos,
+  cuentas hoja/activas, periodo ABIERTO). UI `/admin/contabilidad` (formulario de líneas dinámicas + cuadre
+  en vivo, cuentas agrupadas por clase; balance de comprobación). Capacidad `contabilidad`
+  (consultar/registrar/administrar/cerrar_periodo) en el catálogo. **Verificado por `verify-contabilidad.ts`.**
+
+**2) Presupuesto (CCPET + cadena del gasto)** — commits `f5385fb`/`bb136dc`.
+- **Catálogo CCPET territorial COMPLETO** (1.784 rubros oficiales MinHacienda) portado del parser validado en
+  personeriabuga → `src/lib/presupuesto/ccpet-rubros.generated.ts` (nacional, sembrable). `Apropiacion` por
+  vigencia; cadena **CDP → RP → Obligación → Pago** con validación de saldo disponible en cada eslabón; el
+  **Pago genera un `Comprobante` EGRESO en Contabilidad** (D gasto / C banco) en la misma transacción, trazado
+  por `fuenteModulo`/`fuenteRef` → cierra el círculo presupuestal↔contable. UI `/admin/presupuesto`.
+  **Verificado por `verify-presupuesto.ts` + `verify-presupuesto-rp-pago.ts`** (CDP→RP→OB→PG→CE cuadrando).
+
+**3) Banco de Proyectos (ejecución financiera vs física)** — commit `b8608e8`.
+- `Proyecto` + `ProyectoHito` ponderado + histórico auditable `ProyectoHitoReporte`; `Cdp.proyectoId` enlaza la
+  ejecución financiera al proyecto. `src/lib/proyectos/ejecucion.ts` calcula **financiera%** (pagado/valorTotal),
+  **física%** (hitos ponderados) y la **BRECHA** — el diferenciador del producto (anticipo pagado sin obra =
+  brecha alta/riesgo). UI `/admin/proyectos` (barras + semáforo). **Verificado por `verify-proyectos.ts`**
+  ($20M/$40M, obra 0% → financiera 50%/física 0%/brecha +50pp/riesgo ALTO → tras entrega 100% → riesgo BAJO).
+
+**4) Contratación (Ley 80/1150, gating real por persona)** — commits `cde3080`/`bb4f3b6`/`13e1be0`/`454f2d5`.
+- `Contrato` + `ContratoVersion` (insert-only, versiona borradores y respuestas jurídicas). Máquina de estados
+  `src/lib/contratacion/flujo.ts` (BORRADOR ⇄ EN_REVISION_JURIDICA ⇄ DEVUELTO_ESTRUCTURACION → PERFECCIONADO →
+  SUSCRITO → EN_EJECUCION → SUSPENDIDO/TERMINADO/INCUMPLIDO/LIQUIDADO). **`puedeAvanzarContrato()` combina
+  CAPACIDAD (vía cargo) Y ASIGNACIÓN por-persona** (`estructuradorId`/`abogadoAsignadoId`) — cierra el hueco de
+  "cualquiera con la capacidad aprueba su propio contrato". `usuariosConCapacidad()` en `dominio/acceso.ts`;
+  `ROLES_ADMIN_TENANT` exportado para el override de soporte del admin. UI `/admin/contratacion` (fila
+  expandible con acciones válidas según estado + quién eres). Fixes: hidratación, formateador determinista de
+  miles (no `toLocaleString` en cliente — [[hidratacion-tolocalestring-componentes-cliente]]), RP obligatorio
+  antes de suscribir. **Verificado por `verify-contratacion.ts`** (7 casos de gating + recorrido con personas
+  reales; saltarse un paso se rechaza siempre, incluso admin).
+
+**Estado:** `tsc --noEmit` limpio; `main` sincronizado con origin (Vercel desplegó). Los 4 módulos quedaron
+**verificados por script Y en el navegador en producción** (Claude in Chrome) — ver memoria `punto-de-retoma`
+para los recorridos (ej.: Presupuesto mostró `CE-2026-000001` también en `/admin/contabilidad`; Contratación
+recorrió BORRADOR→…→EN_EJECUCION en la UI real). Reconciliación de bitácora: **hecha**. Módulos en disco:
+`contabilidad`, `presupuesto`, `proyectos`, `contratacion` (+ base A–D). **Siguiente** (de la memoria): evaluar
+migrar Banco de Proyectos a Contrato→Actividad ahora que Contratación existe; luego Nómina / Tesorería /
+Reportes de control (candidatos maduros a portar de personeriabuga).
