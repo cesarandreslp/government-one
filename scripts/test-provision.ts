@@ -15,6 +15,7 @@ async function main() {
     const r = await provisionTenant({
       slug, nombre: "Alcaldía Demo", tipoEntidad: "ALCALDIA",
       dominioPrincipal: "demo.ossgovernmentone.lat",
+      adminNombre: "Admin", adminApellido: "Demo", adminEmail: "admin.demo@gov1.test",
     })
     console.log("✅ Provisionado:", r)
     t = await prismaMeta.tenant.findUnique({ where: { id: r.tenantId } })

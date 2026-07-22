@@ -21,12 +21,18 @@ export async function provisionTenantAction(
   const slug = String(formData.get("slug") ?? "").trim().toLowerCase()
   const nombre = String(formData.get("nombre") ?? "").trim()
   const tipoEntidad = String(formData.get("tipoEntidad") ?? "").trim()
+  const adminNombre = String(formData.get("adminNombre") ?? "").trim()
+  const adminApellido = String(formData.get("adminApellido") ?? "").trim()
+  const adminEmail = String(formData.get("adminEmail") ?? "").trim().toLowerCase()
 
-  if (!slug || !nombre || !tipoEntidad) {
-    return { ok: false, error: "Faltan campos: slug, nombre y tipo de entidad son obligatorios." }
+  if (!slug || !nombre || !tipoEntidad || !adminNombre || !adminApellido || !adminEmail) {
+    return { ok: false, error: "Faltan campos: slug, nombre, tipo de entidad y los datos del admin inicial son obligatorios." }
   }
   if (!/^[a-z0-9-]+$/.test(slug)) {
     return { ok: false, error: "El slug solo admite minúsculas, números y guiones." }
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
+    return { ok: false, error: "Correo del admin inválido." }
   }
 
   try {
@@ -35,9 +41,18 @@ export async function provisionTenantAction(
       nombre,
       tipoEntidad,
       dominioPrincipal: `${slug}.ossgovernmentone.lat`,
+      adminNombre,
+      adminApellido,
+      adminEmail,
     })
     revalidatePath("/superadmin/tenants")
-    return { ok: true, mensaje: `Tenant "${nombre}" provisionado (Neon ${r.neonProjectId}).` }
+    const estructura = r.estructuraSembrada
+      ? `${r.dependencias} dependencia(s)/${r.cargos} cargo(s) sembrados.`
+      : `sin plantilla para "${tipoEntidad}" — construir la estructura a mano desde /admin/estructura.`
+    return {
+      ok: true,
+      mensaje: `Tenant "${nombre}" provisionado (Neon ${r.neonProjectId}). Admin ${adminEmail} creado SIN contraseña — fijala con TENANT_SLUG=${slug} TENANT_USER_EMAIL=${adminEmail} TENANT_USER_PASSWORD=... npx tsx scripts/seed-usuario-tenant.ts. ${estructura}`,
+    }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Error al provisionar el tenant." }
   }

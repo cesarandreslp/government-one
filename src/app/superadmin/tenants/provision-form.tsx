@@ -46,9 +46,26 @@ export function ProvisionForm() {
           </select>
         </label>
       </div>
+      <h3 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-slate-400">Admin inicial del tenant</h3>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="block text-sm">
+          <span className="mb-1 block text-slate-500">Nombre</span>
+          <input name="adminNombre" required placeholder="Nombre" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+        </label>
+        <label className="block text-sm">
+          <span className="mb-1 block text-slate-500">Apellido</span>
+          <input name="adminApellido" required placeholder="Apellido" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+        </label>
+        <label className="block text-sm">
+          <span className="mb-1 block text-slate-500">Correo</span>
+          <input name="adminEmail" type="email" required placeholder="admin@entidad.gov.co" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+        </label>
+      </div>
       <p className="mt-2 text-xs text-slate-400">
         Dominio gestionado: <code>&lt;slug&gt;.ossgovernmentone.lat</code>. Crea una BD Neon dedicada
-        (puede tardar unos segundos).
+        (puede tardar unos segundos), siembra la estructura base (dependencias/cargos) según el tipo
+        de entidad, y crea el admin SIN contraseña — se fija aparte con
+        <code> scripts/seed-usuario-tenant.ts</code> (nunca por este formulario).
       </p>
       <button
         type="submit"
