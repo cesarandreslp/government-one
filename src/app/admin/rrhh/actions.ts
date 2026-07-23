@@ -50,6 +50,7 @@ export async function registrarActoAction(_prev: AccionState, formData: FormData
   const actoAdmin = String(formData.get("actoAdmin") ?? "").trim()
   const desdeRaw = String(formData.get("desde") ?? "").trim()
   const hastaRaw = String(formData.get("hasta") ?? "").trim()
+  const salarioRaw = String(formData.get("salarioBasico") ?? "").trim()
 
   if (!usuarioId || !cargoId) return { ok: false, error: "Funcionario y cargo son obligatorios." }
   if (!VINC_TIPOS.includes(tipo)) return { ok: false, error: "Tipo de acto inválido." }
@@ -57,15 +58,40 @@ export async function registrarActoAction(_prev: AccionState, formData: FormData
   const desde = desdeRaw ? new Date(desdeRaw) : new Date()
   const hasta = hastaRaw ? new Date(hastaRaw) : null
   if (hasta && hasta < desde) return { ok: false, error: "La fecha \"hasta\" no puede ser anterior a \"desde\"." }
+  const salarioBasico = salarioRaw ? Number(salarioRaw) : null
+  if (salarioRaw && (!Number.isFinite(salarioBasico) || salarioBasico! <= 0)) {
+    return { ok: false, error: "El salario debe ser un número mayor a 0." }
+  }
 
   try {
     await ctx.db.vinculacionCargo.create({
-      data: { usuarioId, cargoId, tipo: tipo as never, actoAdmin, desde, hasta },
+      data: { usuarioId, cargoId, tipo: tipo as never, actoAdmin, desde, hasta, salarioBasico },
     })
     revalidatePath("/admin/rrhh")
     return { ok: true, mensaje: "Acto administrativo registrado." }
   } catch {
     return { ok: false, error: "Error al registrar el acto (¿funcionario y cargo válidos?)." }
+  }
+}
+
+/** Fija/corrige el salario de una vinculación ya registrada (backfill o reajuste salarial). */
+export async function actualizarSalarioAction(_prev: AccionState, formData: FormData): Promise<AccionState> {
+  const ctx = await requerirFuncionario()
+  if (!(await funcionarioPuede(ctx, MODULO, "actos_administrativos"))) {
+    return { ok: false, error: "No tienes la capacidad para actualizar salarios." }
+  }
+  const vinculacionId = String(formData.get("vinculacionId") ?? "").trim()
+  const salarioRaw = String(formData.get("salarioBasico") ?? "").trim()
+  const salarioBasico = Number(salarioRaw)
+  if (!vinculacionId) return { ok: false, error: "Selecciona el vínculo a actualizar." }
+  if (!Number.isFinite(salarioBasico) || salarioBasico <= 0) return { ok: false, error: "El salario debe ser un número mayor a 0." }
+
+  try {
+    await ctx.db.vinculacionCargo.update({ where: { id: vinculacionId }, data: { salarioBasico } })
+    revalidatePath("/admin/rrhh")
+    return { ok: true, mensaje: "Salario actualizado." }
+  } catch {
+    return { ok: false, error: "Error al actualizar el salario (¿vínculo válido?)." }
   }
 }
 

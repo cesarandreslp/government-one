@@ -161,6 +161,7 @@ model Usuario {
   pqrsdRespondidas Pqrsd[]            @relation("PqrsdRespondida")
   contratosEstructurados Contrato[]   @relation("ContratoEstructurador")
   contratosRevisados     Contrato[]   @relation("ContratoAbogado")
+  liquidacionesNomina    LiquidacionNomina[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -179,6 +180,9 @@ model VinculacionCargo {
   tipo      VinculacionTipo @default(TITULAR)
   /// Acto administrativo (resolución/decreto) que soporta el nombramiento (encargo/provisional).
   actoAdmin String?
+  /// Asignación salarial de ESTE vínculo (la fija RRHH al posesionar). Null = aún sin fijar —
+  /// Nómina no puede liquidar a quien no tiene salario asignado en ninguna vinculación vigente.
+  salarioBasico Decimal? @db.Decimal(18, 2)
   desde     DateTime        @default(now())
   hasta     DateTime? // null = vigente
 
@@ -551,6 +555,7 @@ model Comprobante {
 
   asientos Asiento[]
   pago     Pago?
+  liquidacionesNomina LiquidacionNomina[]
 
   // Trazabilidad cruzada (presupuesto/nómina/… postean aquí).
   fuenteModulo    String?
@@ -1005,4 +1010,126 @@ model ContratoVersion {
 
   @@index([contratoId])
   @@map("con_contrato_versiones")
+}
+
+// ───────────────────── Módulo: NÓMINA (liquidación → posteo a Contabilidad) ─────────────────────
+// El "empleado de nómina" NO es un modelo aparte: es un `Usuario` con `VinculacionCargo` vigente
+// que RRHH ya registró (Paso 2) — nómina solo LEE el salario que RRHH fijó al posesionar
+// (`VinculacionCargo.salarioBasico`), nunca duplica identidad ni estructura. Los conceptos
+// (`ConceptoNomina`) son 100% tabulares — el motor (`src/lib/nomina/motor.ts`) solo interpreta la
+// `formula`, nunca hardcodea un concepto por nombre. Corte curado (primer incremento, como el CGC
+// de Contabilidad): retención en la fuente, PILA, pago de pasivos a terceros y novedades
+// (vacaciones/incapacidades afectando el neto) quedan para el siguiente incremento.
+
+enum ConceptoNominaTipo {
+  DEVENGADO
+  DEDUCCION
+  APORTE_PATRONAL
+  PRESTACION_SOCIAL
+}
+
+enum FormulaConcepto {
+  FIJO
+  PORCENTAJE_SUELDO
+  PORCENTAJE_IBC
+  PORCENTAJE_DEVENGADO
+}
+
+enum EstadoPeriodoNomina {
+  ABIERTO
+  LIQUIDADO
+  PAGADO
+  CERRADO
+}
+
+/// Catálogo de conceptos de nómina (devengados/deducciones/aportes/prestaciones), sembrado y
+/// editable por tenant — igual patrón que el CGC/CCPET.
+model ConceptoNomina {
+  id                    String             @id @default(cuid())
+  codigo                String             @unique // "NC-001"
+  nombre                String
+  tipo                  ConceptoNominaTipo
+  formula               FormulaConcepto
+  porcentaje            Decimal?           @db.Decimal(6, 4)
+  valorFijo             Decimal?           @db.Decimal(18, 2)
+  /// ¿Cuenta como base para prestaciones/aportes (IBC)? (ej. sueldo sí, auxilio de transporte no).
+  constitutivoSalario   Boolean            @default(false)
+  /// Código de PlanCuenta (Contabilidad) al que postea este concepto. Null = no postea.
+  cuentaContableCodigo  String?
+  /// Orden de aplicación dentro de su tipo (devengados → deducciones → aportes/prestaciones).
+  orden                 Int                @default(0)
+  activo                Boolean            @default(true)
+
+  detalles LiquidacionNominaDetalle[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("nom_conceptos")
+}
+
+/// Periodo de nómina (mensual). Los estados replican el ciclo real: se liquida, se paga, se cierra.
+model PeriodoNomina {
+  id          String              @id @default(cuid())
+  codigo      String              @unique // "2026-05"
+  anio        Int
+  mes         Int
+  estado      EstadoPeriodoNomina @default(ABIERTO)
+  fechaInicio DateTime
+  fechaFin    DateTime
+  liquidadoEn DateTime?
+  pagadoEn    DateTime?
+
+  liquidaciones LiquidacionNomina[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([anio, mes])
+  @@map("nom_periodos")
+}
+
+/// Una fila por funcionario liquidado en el periodo (único por periodo+usuario). `salarioBasico`
+/// es un snapshot al momento de liquidar (la vinculación puede cambiar después sin afectar el
+/// histórico ya liquidado).
+model LiquidacionNomina {
+  id                     String        @id @default(cuid())
+  periodoId              String
+  periodo                PeriodoNomina @relation(fields: [periodoId], references: [id])
+  usuarioId              String
+  usuario                Usuario       @relation(fields: [usuarioId], references: [id])
+  salarioBasico          Decimal       @db.Decimal(18, 2)
+  totalDevengado         Decimal       @default(0) @db.Decimal(18, 2)
+  totalDeducciones       Decimal       @default(0) @db.Decimal(18, 2)
+  totalAportesPatronales Decimal       @default(0) @db.Decimal(18, 2)
+  netoPagar              Decimal       @default(0) @db.Decimal(18, 2)
+
+  comprobanteId String?
+  comprobante   Comprobante? @relation(fields: [comprobanteId], references: [id])
+
+  detalles LiquidacionNominaDetalle[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([periodoId, usuarioId])
+  @@index([usuarioId])
+  @@index([comprobanteId])
+  @@map("nom_liquidaciones")
+}
+
+/// Línea de liquidación por concepto aplicado (auditoría: cómo se llegó al total de cada empleado).
+model LiquidacionNominaDetalle {
+  id            String            @id @default(cuid())
+  liquidacionId String
+  liquidacion   LiquidacionNomina @relation(fields: [liquidacionId], references: [id], onDelete: Cascade)
+  conceptoId    String
+  concepto      ConceptoNomina    @relation(fields: [conceptoId], references: [id])
+  valor         Decimal           @db.Decimal(18, 2)
+  base          Decimal?          @db.Decimal(18, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([liquidacionId])
+  @@map("nom_liquidacion_detalles")
 }

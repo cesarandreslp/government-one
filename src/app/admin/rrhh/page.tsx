@@ -49,6 +49,15 @@ export default async function RrhhPage() {
   const ahora = hoy()
   const vigente = (r: { desde: Date; hasta: Date | null }) => r.desde <= ahora && (r.hasta === null || r.hasta >= ahora)
 
+  const vinculacionesVigentes = usuarios.flatMap((u) =>
+    u.vinculaciones
+      .filter((v) => vigente(v))
+      .map((v) => ({
+        id: v.id,
+        etiqueta: `${u.nombre} ${u.apellido} — ${v.cargo.nombre} (hoy: ${v.salarioBasico ? `$${Number(v.salarioBasico).toLocaleString("es-CO")}` : "sin salario"})`,
+      })),
+  )
+
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
       <header className="mb-6">
@@ -63,6 +72,7 @@ export default async function RrhhPage() {
         puedeActosAdministrativos={puedeActosAdministrativos}
         funcionarios={usuarios.map((u) => ({ id: u.id, nombre: `${u.nombre} ${u.apellido}` }))}
         cargos={cargos.map((c) => ({ id: c.id, nombre: `${c.nombre}${c.empleo ? ` — ${c.empleo.denominacion}` : ""}`, depCodigo: c.dependencia.codigo }))}
+        vinculacionesVigentes={vinculacionesVigentes}
       />
 
       <section className="mt-8">
@@ -94,7 +104,8 @@ export default async function RrhhPage() {
                             <span className={vigente(v) ? "font-medium text-slate-700" : "text-slate-400 line-through"}>
                               {v.cargo.dependencia.codigo} · {v.cargo.nombre}
                             </span>{" "}
-                            <span className="text-slate-400">({VIA_LABEL[v.tipo] ?? v.tipo}{v.actoAdmin ? ` · ${v.actoAdmin}` : ""})</span>
+                            <span className="text-slate-400">({VIA_LABEL[v.tipo] ?? v.tipo}{v.actoAdmin ? ` · ${v.actoAdmin}` : ""})</span>{" "}
+                            {v.salarioBasico && <span className="text-emerald-700">${Number(v.salarioBasico).toLocaleString("es-CO")}</span>}
                             {v.cargo.funciones && <div className="italic text-slate-400">{v.cargo.funciones}</div>}
                           </div>
                         ))}

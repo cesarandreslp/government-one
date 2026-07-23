@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState } from "react"
-import { crearFuncionarioAction, registrarActoAction, registrarAusenciaAction, type AccionState } from "./actions"
+import { crearFuncionarioAction, registrarActoAction, registrarAusenciaAction, actualizarSalarioAction, type AccionState } from "./actions"
 
 interface Opcion {
   id: string
@@ -10,12 +10,17 @@ interface Opcion {
 interface CargoOpcion extends Opcion {
   depCodigo: string
 }
+interface VinculacionOpcion {
+  id: string
+  etiqueta: string
+}
 
 interface Props {
   puedeGestionarFuncionarios: boolean
   puedeActosAdministrativos: boolean
   funcionarios: Opcion[]
   cargos: CargoOpcion[]
+  vinculacionesVigentes: VinculacionOpcion[]
 }
 
 const inicial: AccionState = {}
@@ -37,10 +42,11 @@ function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNo
   )
 }
 
-export function RrhhAcciones({ puedeGestionarFuncionarios, puedeActosAdministrativos, funcionarios, cargos }: Props) {
+export function RrhhAcciones({ puedeGestionarFuncionarios, puedeActosAdministrativos, funcionarios, cargos, vinculacionesVigentes }: Props) {
   const [funcState, funcAction, funcPend] = useActionState(crearFuncionarioAction, inicial)
   const [actoState, actoAction, actoPend] = useActionState(registrarActoAction, inicial)
   const [ausState, ausAction, ausPend] = useActionState(registrarAusenciaAction, inicial)
+  const [salState, salAction, salPend] = useActionState(actualizarSalarioAction, inicial)
 
   if (!puedeGestionarFuncionarios && !puedeActosAdministrativos) return null
 
@@ -92,9 +98,31 @@ export function RrhhAcciones({ puedeGestionarFuncionarios, puedeActosAdministrat
                 <input name="hasta" type="date" className={INPUT} />
               </label>
             </div>
+            <input name="salarioBasico" type="number" min="0" step="1000" placeholder="Salario básico (opcional, para Nómina)" className={INPUT} />
             <button type="submit" disabled={actoPend} className={BTN}>{actoPend ? "Registrando…" : "Registrar acto"}</button>
           </form>
           <Mensaje state={actoState} />
+        </Tarjeta>
+      )}
+
+      {puedeActosAdministrativos && (
+        <Tarjeta titulo="Actualizar salario">
+          {vinculacionesVigentes.length === 0 ? (
+            <p className="text-sm text-slate-400">No hay vínculos vigentes.</p>
+          ) : (
+            <form action={salAction} className="grid gap-2">
+              <select name="vinculacionId" required defaultValue="" className={INPUT}>
+                <option value="" disabled>— Vínculo vigente —</option>
+                {vinculacionesVigentes.map((v) => (
+                  <option key={v.id} value={v.id}>{v.etiqueta}</option>
+                ))}
+              </select>
+              <input name="salarioBasico" type="number" min="0" step="1000" placeholder="Salario básico" required className={INPUT} />
+              <p className="text-xs text-slate-400">Corrige o fija el salario de un vínculo ya registrado (sin crear un acto nuevo).</p>
+              <button type="submit" disabled={salPend} className={BTN}>{salPend ? "Guardando…" : "Actualizar salario"}</button>
+            </form>
+          )}
+          <Mensaje state={salState} />
         </Tarjeta>
       )}
 

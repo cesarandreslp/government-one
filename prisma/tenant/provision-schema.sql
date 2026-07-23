@@ -75,6 +75,15 @@ CREATE TYPE "EstadoContrato" AS ENUM ('BORRADOR', 'EN_REVISION_JURIDICA', 'DEVUE
 -- CreateEnum
 CREATE TYPE "TipoVersionContrato" AS ENUM ('BORRADOR_ESTRUCTURACION', 'REVISION_JURIDICA');
 
+-- CreateEnum
+CREATE TYPE "ConceptoNominaTipo" AS ENUM ('DEVENGADO', 'DEDUCCION', 'APORTE_PATRONAL', 'PRESTACION_SOCIAL');
+
+-- CreateEnum
+CREATE TYPE "FormulaConcepto" AS ENUM ('FIJO', 'PORCENTAJE_SUELDO', 'PORCENTAJE_IBC', 'PORCENTAJE_DEVENGADO');
+
+-- CreateEnum
+CREATE TYPE "EstadoPeriodoNomina" AS ENUM ('ABIERTO', 'LIQUIDADO', 'PAGADO', 'CERRADO');
+
 -- CreateTable
 CREATE TABLE "empleos_dafp" (
     "id" TEXT NOT NULL,
@@ -144,6 +153,7 @@ CREATE TABLE "vinculaciones_cargo" (
     "cargoId" TEXT NOT NULL,
     "tipo" "VinculacionTipo" NOT NULL DEFAULT 'TITULAR',
     "actoAdmin" TEXT,
+    "salarioBasico" DECIMAL(18,2),
     "desde" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "hasta" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -624,6 +634,71 @@ CREATE TABLE "con_contrato_versiones" (
     CONSTRAINT "con_contrato_versiones_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "nom_conceptos" (
+    "id" TEXT NOT NULL,
+    "codigo" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "tipo" "ConceptoNominaTipo" NOT NULL,
+    "formula" "FormulaConcepto" NOT NULL,
+    "porcentaje" DECIMAL(6,4),
+    "valorFijo" DECIMAL(18,2),
+    "constitutivoSalario" BOOLEAN NOT NULL DEFAULT false,
+    "cuentaContableCodigo" TEXT,
+    "orden" INTEGER NOT NULL DEFAULT 0,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "nom_conceptos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "nom_periodos" (
+    "id" TEXT NOT NULL,
+    "codigo" TEXT NOT NULL,
+    "anio" INTEGER NOT NULL,
+    "mes" INTEGER NOT NULL,
+    "estado" "EstadoPeriodoNomina" NOT NULL DEFAULT 'ABIERTO',
+    "fechaInicio" TIMESTAMP(3) NOT NULL,
+    "fechaFin" TIMESTAMP(3) NOT NULL,
+    "liquidadoEn" TIMESTAMP(3),
+    "pagadoEn" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "nom_periodos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "nom_liquidaciones" (
+    "id" TEXT NOT NULL,
+    "periodoId" TEXT NOT NULL,
+    "usuarioId" TEXT NOT NULL,
+    "salarioBasico" DECIMAL(18,2) NOT NULL,
+    "totalDevengado" DECIMAL(18,2) NOT NULL DEFAULT 0,
+    "totalDeducciones" DECIMAL(18,2) NOT NULL DEFAULT 0,
+    "totalAportesPatronales" DECIMAL(18,2) NOT NULL DEFAULT 0,
+    "netoPagar" DECIMAL(18,2) NOT NULL DEFAULT 0,
+    "comprobanteId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "nom_liquidaciones_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "nom_liquidacion_detalles" (
+    "id" TEXT NOT NULL,
+    "liquidacionId" TEXT NOT NULL,
+    "conceptoId" TEXT NOT NULL,
+    "valor" DECIMAL(18,2) NOT NULL,
+    "base" DECIMAL(18,2),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "nom_liquidacion_detalles_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "empleos_dafp_codigo_key" ON "empleos_dafp"("codigo");
 
@@ -840,6 +915,27 @@ CREATE INDEX "con_contratos_abogadoAsignadoId_idx" ON "con_contratos"("abogadoAs
 -- CreateIndex
 CREATE INDEX "con_contrato_versiones_contratoId_idx" ON "con_contrato_versiones"("contratoId");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "nom_conceptos_codigo_key" ON "nom_conceptos"("codigo");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "nom_periodos_codigo_key" ON "nom_periodos"("codigo");
+
+-- CreateIndex
+CREATE INDEX "nom_periodos_anio_mes_idx" ON "nom_periodos"("anio", "mes");
+
+-- CreateIndex
+CREATE INDEX "nom_liquidaciones_usuarioId_idx" ON "nom_liquidaciones"("usuarioId");
+
+-- CreateIndex
+CREATE INDEX "nom_liquidaciones_comprobanteId_idx" ON "nom_liquidaciones"("comprobanteId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "nom_liquidaciones_periodoId_usuarioId_key" ON "nom_liquidaciones"("periodoId", "usuarioId");
+
+-- CreateIndex
+CREATE INDEX "nom_liquidacion_detalles_liquidacionId_idx" ON "nom_liquidacion_detalles"("liquidacionId");
+
 -- AddForeignKey
 ALTER TABLE "dependencias" ADD CONSTRAINT "dependencias_padreId_fkey" FOREIGN KEY ("padreId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -956,4 +1052,19 @@ ALTER TABLE "con_contratos" ADD CONSTRAINT "con_contratos_rpId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "con_contrato_versiones" ADD CONSTRAINT "con_contrato_versiones_contratoId_fkey" FOREIGN KEY ("contratoId") REFERENCES "con_contratos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "nom_liquidaciones" ADD CONSTRAINT "nom_liquidaciones_periodoId_fkey" FOREIGN KEY ("periodoId") REFERENCES "nom_periodos"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "nom_liquidaciones" ADD CONSTRAINT "nom_liquidaciones_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "nom_liquidaciones" ADD CONSTRAINT "nom_liquidaciones_comprobanteId_fkey" FOREIGN KEY ("comprobanteId") REFERENCES "cp_comprobantes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "nom_liquidacion_detalles" ADD CONSTRAINT "nom_liquidacion_detalles_liquidacionId_fkey" FOREIGN KEY ("liquidacionId") REFERENCES "nom_liquidaciones"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "nom_liquidacion_detalles" ADD CONSTRAINT "nom_liquidacion_detalles_conceptoId_fkey" FOREIGN KEY ("conceptoId") REFERENCES "nom_conceptos"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
