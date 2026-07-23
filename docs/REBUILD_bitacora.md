@@ -580,3 +580,141 @@ con cargos y opera nómina + actos administrativos. Ni el superadmin ni el admin
 una dependencia). **Siguiente:** Paso 2 (RRHH/Gestión Humana: niveles de cargo + actos administrativos +
 creación de funcionarios con credencial) y Paso 3 (Nómina). La verificación PLENA del gating de 3 capas para
 no-admins llega con Paso 2 (funcionarios con login).
+
+## Progreso — Gobernanza de módulos cerrada + aprovisionamiento completo (2026-07-22)
+
+**Paso 1 cerrado de punta a punta:** verificada en navegador la última pieza (`/superadmin/tenants` con
+checkboxes de módulos contratados por tenant, persistiendo real). Las 3 capas confirmadas visualmente:
+superadmin habilita → admin tenant asigna a dependencia → capacidad del cargo.
+
+**Hueco encontrado y cerrado — aprovisionamiento no dejaba el tenant usable (commit `a055e6f`):** el usuario
+preguntó si un tenant nuevo llega con Portal+GD+VU habilitados por defecto; al verificar apareció que
+`provisionTenant()` NO sembraba estructura organizacional ni creaba ningún funcionario — un tenant nuevo
+quedaba `ACTIVO` sin que nadie pudiera iniciar sesión. Fix: tras aplicar el schema, `provisionTenant()` ahora
+siembra `aplicarPlantilla(tipoEntidad)` (si existe plantilla para ese tipo) y crea el admin inicial con
+`passwordHash: null` (se fija aparte, mismo patrón de credenciales de siempre). Formulario del superadmin
+pide nombre/apellido/correo del admin. **Verificado con un tenant real** (Personería Verificación): Neon
+creado, 3 dependencias/4 cargos sembrados, admin sin contraseña, `modulosContratados=[]` por defecto —
+luego borrado. Hallazgo de infra en el camino: `NEON_API_KEY` de Vercel producción estaba desactualizada
+(el usuario la actualizó él mismo, Claude nunca maneja esa clase de secretos).
+
+**Apex `ossgovernmentone.lat` movido a government-one** (a pedido explícito del usuario): mismo patrón que
+el wildcard (`DELETE`/`POST` project-domains vía API de Vercel). Cero cambios de código —
+`resolveTenantByHost` ya trataba cualquier host sin tenant registrado como plataforma, así que el apex
+"simplemente funcionó" al apuntar al proyecto nuevo. Verificado: apex → landing nueva, `apex/login` → login
+del superadmin (antes solo vivía en `government-one.vercel.app`).
+
+## Progreso — Paso 2: RRHH/Talento Humano + catálogo DAFP de empleos (2026-07-23, commits `44c4285`+`1706a13`)
+
+El usuario corrigió que veníamos probando todo como el admin del tenant: **ni superadmin ni admin hacen la
+operación diaria** — la dependencia real de Talento Humano crea funcionarios y registra sus actos
+administrativos. Antes, `/admin/estructura` mezclaba TODO (dependencias/cargos/funcionarios/vínculos)
+gateado solo por rol ADMIN.
+
+**Módulo nuevo `gestion_humana` (base, siempre activo, ruta `/admin/rrhh`):**
+- Capacidades `gestionar_funcionarios`/`actos_administrativos`/`consultar`. `nomina` (aún sin construir en
+  ese momento) pasó a `dependeDe: ["gestion_humana","contabilidad"]`.
+- `/admin/rrhh`: crear funcionario (rol fijo USER — RRHH no puede otorgarse ADMIN a sí mismo), registrar
+  acto administrativo (TITULAR/ENCARGADO/PROVISIONAL con `actoAdmin` **obligatorio**, antes era opcional),
+  registrar ausencias — todo gateado por capacidad `funcionarioPuede`, no por rol.
+- `/admin/estructura` se recortó: ya no crea funcionarios ni vínculos, solo estructura + tabla de solo
+  lectura.
+
+**Catálogo DAFP de empleos (corrección de fondo tras ejemplo real del usuario):** el `nivel` genérico de
+`Cargo` (5 categorías) no distinguía nada real — el usuario dio el ejemplo de Planeación (técnico de
+estratificación, profesional universitario de seguimiento al PDM, profesional especializado líder del
+banco de proyectos, secretario). Mismo patrón que CGC/CCPET (catálogo nacional sembrado por tenant,
+editable):
+- `EmpleoDafp` (código+denominación+nivel, Decreto 785/2005, corte curado ~22 denominaciones) —
+  `src/lib/dominio/empleos-dafp.ts` + `sembrarEmpleosDafp()`, sembrado ANTES de `aplicarPlantilla`.
+- `Cargo.empleoId` (nivel ahora DERIVADO del empleo), `Cargo.funciones` (responsabilidad específica del
+  cargo), `Cargo.jefeInmediatoId` (autorrelación — supervisión real dentro de la dependencia, distinta de
+  `esJefatura` de toda la dependencia). NO se hardcodearon cadenas de jefe inmediato en las plantillas (es
+  realidad de cada tenant); sí se enriqueció Planeación con los 4 roles reales del ejemplo (genérico, sin
+  nombres).
+
+**Bug encontrado y corregido:** `rrhh/page.tsx` comparaba vigencia de `VinculacionCargo` contra un "ahora"
+truncado a medianoche — cualquier acto registrado el MISMO día quedaba excluido de "vigente" hasta el día
+siguiente. Fix: comparar contra la hora exacta; las ausencias (rangos de día calendario) sí truncan.
+
+**Verificado en vivo:** primera vez en todo el proyecto con un funcionario NO-admin real (Carlos Ramírez,
+vinculado a Profesional de Talento Humano) — su nav mostró solo "Talento Humano", operó RRHH sin problema,
+y `/admin/contratacion` lo rechazó pese a que el tenant sí tenía ese módulo contratado (capa 2 filtrando
+correctamente).
+
+## Progreso — Ventanilla Única: derivar + clasificación por IA (2026-07-23, commits `5ffd389`+`b95cc19`)
+
+**"Derivar a otra dependencia" (commit `5ffd389`):** el ciudadano nunca elige dependencia en el portal
+público, así que una PQRSD sin pistas cae siempre en el fallback de servicio compartido (Atención al
+Ciudadano) sin importar el contenido, y no había forma de corregir ese ruteo después. Nueva acción
+`derivarPqrsdAction` reutiliza `resolverAsignacionVu` contra la dependencia elegida por un humano —
+gateada por `ventanilla_unica:asignar`, capacidad que existía en el catálogo desde la fundación pero
+nunca se había cableado a nada.
+
+**Clasificación de PQRSD por IA, multi-proveedor (commits `0e8864f`→`b95cc19`):** el usuario pidió que la
+IA leyera el CUERPO de la petición y asignara directo al funcionario correcto según sus `funciones`
+(ejemplos reales: línea de paramento → técnico de ordenamiento territorial; subsidio de adulto mayor →
+técnico de Bienestar Social) — sin que el ciudadano mencione dependencia/cargo. Diseño:
+- `TenantSecretos` (`Tenant.secretosEncriptados`, campo que ya existía pero nunca se había cableado) —
+  regla de oro: ninguna clave de IA se comparte entre tenants.
+- **Multi-proveedor** (corrección tras el primer intento con Anthropic — el usuario configuró Groq):
+  `src/lib/ia/proveedores/openai-compatible.ts` (un solo adaptador para OpenAI/Groq/Zhipu, comparten
+  formato), `anthropic.ts`, `gemini.ts` aparte. `clasificar-pqrsd.ts` es el dispatcher.
+- `resolverAsignacionVu` intenta IA SOLO si no hay dependencia dada, contra cargos con
+  `ventanilla_unica:responder` + `funciones` descritas; sin clave configurada o cualquier falla → degrada
+  EXACTAMENTE al comportamiento de siempre — nunca bloquea un radicado real.
+- Superadmin: selector de proveedor + clave, write-only.
+
+**Verificado en vivo con la clave real de Groq del usuario:** creé los funcionarios Héctor Fabio Cruz
+(Planeación) y Diego López (Bienestar Social) vía RRHH; radiqué por el portal público (sin sesión, sin
+dependencia) las dos peticiones exactas del ejemplo del usuario — ambas quedaron `ASIGNADA` directo a la
+persona correcta.
+
+## Progreso — Paso 3: Nómina COMPLETA (2026-07-23, commits `734ab87`+`1da04b1`+`d6e5eba`)
+
+**Primer cut (commits `734ab87`+`1da04b1`):** investigué `personeriabuga` (Fase 11/12/15, módulo
+`nomina_publica`) vía subagente antes de portar — hallazgo clave: allá `NomEmpleado` era un modelo AISLADO
+con cargo/dependencia en texto libre, sin relación con la estructura real. En `government-one` NO se
+repitió: el "empleado de nómina" ES el `Usuario` con `VinculacionCargo` vigente que RRHH ya gestiona —
+nómina solo LEE el salario que RRHH fija al posesionar (`VinculacionCargo.salarioBasico`, campo nuevo).
+- `src/lib/nomina/motor.ts` (función pura): devengados→IBC→deducciones→aportes patronales/prestaciones→neto,
+  sin heurísticas por nombre de concepto.
+- 12 conceptos curados (sueldo, prima mensualizada, auxilio transporte, salud/pensión empleado y patronal,
+  ARL, caja, ICBF, SENA, cesantías). `cgc.ts` extendido 69→80 cuentas.
+- `/admin/nomina`: sembrar conceptos, crear periodo, liquidar, pagar (comprobante EGRESO agregado en
+  Contabilidad, mismo patrón que Presupuesto→Pago→Comprobante). Capacidad `nomina:[consultar,liquidar,pagar]`.
+- Bug encontrado: extender `cgc.ts` en código no alcanza — hay que re-correr `aplicarPlanCuentas` contra
+  tenants ya sembrados (mismo patrón recurrente: editar un catálogo en código nunca actualiza tenants ya
+  sembrados automáticamente).
+
+**Segundo incremento, MISMA sesión (commit `d6e5eba`) — corrección de fondo del usuario:** *"hagamos las
+cosas completas en lugar de andar pensando en dejar algo a medias y sapotear otra cosa"* — rechazó
+explícitamente el patrón de "primer corte + resto para después" que había funcionado para Contabilidad/
+Presupuesto. Se completó TODO en la misma pasada:
+- **Retención en la fuente REAL** (no placeholder=0): tabla progresiva Art. 383 ET (7 tramos en UVT, ley
+  estable) + `NominaParametro` (UVT editable por tenant, sembrado con el valor 2025 conocido y su fuente).
+  Base gravable = IBC − aportes obligatorios ya deducidos − 25% renta exenta (tope 240 UVT). Verificado por
+  script contra 8 tramos de UVT, coincide al peso con el cálculo manual.
+- **Novedades afectando el neto:** las `Ausencia` de RRHH (licencia/incapacidad) ahora se leen al liquidar
+  — licencia + incapacidad desde el día 3 prorratean el devengado; incapacidad genera el auxilio del
+  66.67% (Ley 100/1993 Art. 227); vacaciones/comisión no reducen nada (remuneradas).
+- **PILA:** generador con campos núcleo de un registro tipo 2 UGPP — alcance declarado honestamente (no
+  reclama compatibilidad byte-exacta con la especificación completa sin poder verificarla contra la vigente).
+- **Pago de pasivos a terceros** (EPS/AFP/ARL/caja/DIAN): saldo real por cuenta (causado por nómina − ya
+  pagado), comprobante propio.
+- **Certificado de retenciones** (Art. 378 ET) con la retención YA calculada de verdad.
+- RRHH: `Usuario.documento/tipoDocumento` + tarjeta "Datos de seguridad social" (EPS/AFP/ARL/caja como
+  texto libre a propósito — un catálogo con códigos UGPP inventados sería peor que texto libre si algún
+  dígito estuviera mal). `Tenant.nit` en meta-DB (UI superadmin) — lo exige PILA.
+
+**Verificado en vivo:** comprobante de pago de periodo cuadrado ($11.454.320 débito=crédito); PILA generada
+(3 afiliados, exige NIT+documento); pago real a "Nueva EPS" ($296.000) redujo el saldo pendiente a $0;
+certificado de Héctor Fabio Cruz con sus datos reales.
+
+**Módulo Nómina: COMPLETO.** Nueva memoria de feedback (`feedback-completar-no-trocear`) que rige el resto
+del rebuild: terminar cada módulo por completo en la misma pasada, no dejar piezas para "un segundo
+incremento" salvo simplificaciones legales estándar declaradas honestamente (no piezas sin construir).
+
+**Siguiente:** Tesorería (único módulo del catálogo `MODULOS_CONTRATABLES` sin página aún) — y revisar qué
+más le falta a un módulo de Hacienda Pública completo (Contabilidad+Presupuesto+Tesorería+Nómina) antes de
+darlo por cerrado.
