@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { requerirRolTenant } from "@/lib/dal-tenant"
 import { aplicarPlantilla, hayPlantilla } from "@/lib/dominio/plantillas-cargo"
+import { sembrarEmpleosDafp } from "@/lib/dominio/empleos-dafp"
 
 // Acciones de administración de la ESTRUCTURA ORGANIZACIONAL del tenant. Todas gateadas por
 // rol de IDENTIDAD del tenant (ADMIN/SUPER_ADMIN) — administrar la estructura NO es una
@@ -11,7 +12,6 @@ import { aplicarPlantilla, hayPlantilla } from "@/lib/dominio/plantillas-cargo"
 
 const ADMINS = ["ADMIN", "SUPER_ADMIN"]
 const DEP_TIPOS = ["DESPACHO", "SECRETARIA", "SUBSECRETARIA", "DIRECCION", "OFICINA"]
-const NIVELES = ["ASISTENCIAL", "TECNICO", "PROFESIONAL", "ASESOR", "DIRECTIVO"]
 
 export interface AccionState {
   ok?: boolean
@@ -19,16 +19,17 @@ export interface AccionState {
   mensaje?: string
 }
 
-/** Siembra la plantilla de estructura del TIPO de entidad del tenant (idempotente). */
+/** Siembra el catálogo de empleos DAFP + la plantilla de estructura del tipo de entidad (idempotente). */
 export async function sembrarEstructuraAction(): Promise<AccionState> {
   const { tenant, db } = await requerirRolTenant(ADMINS)
   if (!hayPlantilla(tenant.tipoEntidad)) {
     return { ok: false, error: `No hay plantilla de estructura para el tipo "${tenant.tipoEntidad}".` }
   }
   try {
+    const emp = await sembrarEmpleosDafp(db)
     const r = await aplicarPlantilla(db, tenant.tipoEntidad)
     revalidatePath("/admin/estructura")
-    return { ok: true, mensaje: `Estructura sembrada: ${r.dependencias} dependencias, ${r.cargos} cargos nuevos.` }
+    return { ok: true, mensaje: `Catálogo de empleos: ${emp.empleos} nuevo(s). Estructura sembrada: ${r.dependencias} dependencias, ${r.cargos} cargos nuevos.` }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Error al sembrar la estructura." }
   }
@@ -62,17 +63,19 @@ export async function crearCargoAction(_prev: AccionState, formData: FormData): 
   const dependenciaId = String(formData.get("dependenciaId") ?? "").trim()
   const nombre = String(formData.get("nombre") ?? "").trim()
   const esJefatura = formData.get("esJefatura") === "on"
-  const nivelRaw = String(formData.get("nivel") ?? "").trim()
-  const nivel = NIVELES.includes(nivelRaw) ? nivelRaw : null
+  const empleoId = String(formData.get("empleoId") ?? "").trim() || null
+  const funciones = String(formData.get("funciones") ?? "").trim() || null
+  const jefeInmediatoId = String(formData.get("jefeInmediatoId") ?? "").trim() || null
 
   if (!dependenciaId || !nombre) return { ok: false, error: "Dependencia y nombre del cargo son obligatorios." }
 
   try {
-    await db.cargo.create({ data: { dependenciaId, nombre, esJefatura, nivel: nivel as never, grants: {} } })
+    const nivel = empleoId ? (await db.empleoDafp.findUnique({ where: { id: empleoId } }))?.nivel ?? null : null
+    await db.cargo.create({ data: { dependenciaId, nombre, esJefatura, empleoId, nivel: nivel as never, funciones, jefeInmediatoId, grants: {} } })
     revalidatePath("/admin/estructura")
     return { ok: true, mensaje: `Cargo "${nombre}" creado.` }
   } catch {
-    return { ok: false, error: "Error al crear el cargo (¿dependencia válida?)." }
+    return { ok: false, error: "Error al crear el cargo (¿dependencia/empleo/jefe inmediato válidos?)." }
   }
 }
 

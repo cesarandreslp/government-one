@@ -53,6 +53,25 @@ enum AusenciaTipo {
   INCAPACIDAD
 }
 
+/// Catálogo NACIONAL de empleos (Decreto 785/2005: nomenclatura y clasificación de empleos para
+/// entidades territoriales) — sembrado en la BD del tenant (mismo patrón que CGC/CCPET: catálogo
+/// nacional, editable una vez sembrado). `nivel` en `Cargo` se DERIVA de este catálogo, no se
+/// elige manualmente.
+model EmpleoDafp {
+  id           String     @id @default(cuid())
+  codigo       String     @unique // ej. "222-02" (código DAFP + grado)
+  denominacion String // ej. "Profesional Especializado Grado 2"
+  nivel        NivelCargo
+  activo       Boolean    @default(true)
+
+  cargos Cargo[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("empleos_dafp")
+}
+
 /// Árbol organizacional: Secretaría → Subsecretaría → Dirección → Oficina (profundidad libre).
 model Dependencia {
   id          String          @id @default(cuid())
@@ -93,8 +112,20 @@ model Cargo {
   nombre        String
   /// ¿Es el cargo cabeza de la dependencia? (fallback de ruteo/aprobación).
   esJefatura    Boolean     @default(false)
-  /// Nivel del empleo (asistencial/técnico/profesional/asesor/directivo). Null = no clasificado.
+  /// Nivel del empleo (asistencial/técnico/profesional/asesor/directivo). DERIVADO de `empleo` al
+  /// asignarlo (no se elige a mano). Null = cargo de elección/período fijo (Alcalde, Personero).
   nivel         NivelCargo?
+  /// Denominación DAFP del empleo (catálogo `EmpleoDafp`). Null = cargo de elección/período fijo.
+  empleoId      String?
+  empleo        EmpleoDafp? @relation(fields: [empleoId], references: [id])
+  /// Funciones/responsabilidad ESPECÍFICA de este cargo (manual de funciones), ej. "Estratificación
+  /// socioeconómica municipal". Distinto de `grants`: esto es descriptivo, no confiere autoridad.
+  funciones     String?
+  /// Jefe inmediato DENTRO de la dependencia (supervisión real, distinta de `esJefatura` de la
+  /// dependencia completa — ej. un profesional líder de equipo sin ser el secretario de despacho).
+  jefeInmediatoId String?
+  jefeInmediato    Cargo?  @relation("CargoSupervision", fields: [jefeInmediatoId], references: [id])
+  subalternos      Cargo[] @relation("CargoSupervision")
   /// Bundle de capacidades: { moduloId: capacidad[] }. Mismo formato que los grants por usuario.
   grants        Json        @default("{}")
   activo        Boolean     @default(true)
@@ -106,6 +137,8 @@ model Cargo {
   updatedAt DateTime @updatedAt
 
   @@index([dependenciaId])
+  @@index([empleoId])
+  @@index([jefeInmediatoId])
   @@map("cargos")
 }
 

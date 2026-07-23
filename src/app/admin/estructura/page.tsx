@@ -17,9 +17,10 @@ function chips(grants: Grants): string[] {
 export default async function EstructuraPage() {
   const { tenant, db } = await requerirRolTenant(["ADMIN", "SUPER_ADMIN"])
 
-  const [dependencias, usuarios] = await Promise.all([
-    db.dependencia.findMany({ orderBy: { codigo: "asc" }, include: { cargos: { orderBy: { nombre: "asc" } } } }),
+  const [dependencias, usuarios, empleos] = await Promise.all([
+    db.dependencia.findMany({ orderBy: { codigo: "asc" }, include: { cargos: { orderBy: { nombre: "asc" }, include: { empleo: true, jefeInmediato: { include: { dependencia: true } } } } } }),
     db.usuario.findMany({ orderBy: { apellido: "asc" }, include: { vinculaciones: { include: { cargo: true } } } }),
+    db.empleoDafp.findMany({ where: { activo: true }, orderBy: { codigo: "asc" } }),
   ])
 
   const nombrePorUsuario = new Map(usuarios.map((u) => [u.id, `${u.nombre} ${u.apellido}`]))
@@ -77,6 +78,8 @@ export default async function EstructuraPage() {
         tipoEntidad={tenant.tipoEntidad}
         hayPlantilla={hayPlantilla(tenant.tipoEntidad)}
         dependencias={dependencias.map((d) => ({ id: d.id, codigo: d.codigo, nombre: d.nombre }))}
+        empleos={empleos.map((e) => ({ id: e.id, codigo: e.codigo, denominacion: e.denominacion }))}
+        cargos={cargosPlanos.map((c) => ({ id: c.id, nombre: c.nombre, depCodigo: porId.get(c.dependenciaId)?.codigo ?? "?" }))}
       />
 
       {/* Árbol de dependencias + cargos */}
@@ -102,16 +105,24 @@ export default async function EstructuraPage() {
                   {d.cargos.map((c) => {
                     const ej = ejercientes.get(c.id)
                     return (
-                      <li key={c.id} className="flex flex-wrap items-center gap-2 border-l-2 border-slate-100 pl-3 text-sm">
-                        <span className="text-slate-700">{c.nombre}</span>
-                        {c.esJefatura && <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">jefatura</span>}
-                        {c.nivel && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{c.nivel}</span>}
-                        {chips((c.grants ?? {}) as Grants).map((g) => (
-                          <span key={g} className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-500">{g}</span>
-                        ))}
-                        <span className="ml-auto text-xs text-slate-400">
-                          {ej ? `ejerce: ${nombrePorUsuario.get(ej.usuarioId) ?? ej.usuarioId} · ${VIA_LABEL[ej.via]}` : "sin ocupante"}
-                        </span>
+                      <li key={c.id} className="border-l-2 border-slate-100 pl-3 text-sm">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-slate-700">{c.nombre}</span>
+                          {c.esJefatura && <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">jefatura</span>}
+                          {c.empleo && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{c.empleo.codigo} · {c.empleo.denominacion}</span>}
+                          {chips((c.grants ?? {}) as Grants).map((g) => (
+                            <span key={g} className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-500">{g}</span>
+                          ))}
+                          <span className="ml-auto text-xs text-slate-400">
+                            {ej ? `ejerce: ${nombrePorUsuario.get(ej.usuarioId) ?? ej.usuarioId} · ${VIA_LABEL[ej.via]}` : "sin ocupante"}
+                          </span>
+                        </div>
+                        {c.funciones && <p className="mt-1 text-xs italic text-slate-500">{c.funciones}</p>}
+                        {c.jefeInmediato && (
+                          <p className="mt-1 text-xs text-slate-400">
+                            reporta a: {c.jefeInmediato.dependencia.codigo} · {c.jefeInmediato.nombre}
+                          </p>
+                        )}
                       </li>
                     )
                   })}

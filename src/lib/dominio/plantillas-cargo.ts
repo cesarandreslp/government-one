@@ -13,8 +13,10 @@ export interface PlantillaCargo {
   nombre: string
   esJefatura?: boolean
   grants?: Grants
-  /** Nivel del empleo (Decreto-Ley 785/2005). Sin definir = cargo de elección/período fijo. */
-  nivel?: "ASISTENCIAL" | "TECNICO" | "PROFESIONAL" | "ASESOR" | "DIRECTIVO"
+  /** Código del catálogo `EMPLEOS_DAFP` (ver empleos-dafp.ts). Sin definir = elección/período fijo. */
+  empleoCodigo?: string
+  /** Funciones/responsabilidad específica de este cargo (manual de funciones), texto libre. */
+  funciones?: string
 }
 
 export interface PlantillaDependencia {
@@ -48,48 +50,65 @@ const ALCALDIA: PlantillaEntidad = {
     {
       codigo: "JUR", nombre: "Oficina Jurídica", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
-        { nombre: "Jefe de Oficina Jurídica", esJefatura: true, nivel: "ASESOR", grants: { contratacion: ["concepto_juridico", "revisar_juridica"] } },
-        { nombre: "Profesional Jurídico", nivel: "PROFESIONAL", grants: { contratacion: ["revisar_juridica"] } },
+        { nombre: "Jefe de Oficina Jurídica", esJefatura: true, empleoCodigo: "115-01", grants: { contratacion: ["concepto_juridico", "revisar_juridica"] },
+          funciones: "Dirigir la oficina jurídica; conceptuar y revisar jurídicamente los procesos contractuales y actos administrativos de la entidad." },
+        { nombre: "Profesional Jurídico", empleoCodigo: "222-02", grants: { contratacion: ["revisar_juridica"] },
+          funciones: "Revisión jurídica de contratos y actos administrativos." },
       ],
     },
     {
       codigo: "CONT", nombre: "Oficina de Contratación", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
-        { nombre: "Jefe de Contratación", esJefatura: true, nivel: "DIRECTIVO", grants: { contratacion: ["elaborar", "aprobar"] } },
-        { nombre: "Profesional de Contratación", nivel: "PROFESIONAL", grants: { contratacion: ["elaborar"] } },
+        { nombre: "Jefe de Contratación", esJefatura: true, empleoCodigo: "068-01", grants: { contratacion: ["elaborar", "aprobar"] },
+          funciones: "Dirigir el proceso de contratación de la entidad; aprobar la estructuración de contratos." },
+        { nombre: "Profesional de Contratación", empleoCodigo: "219-02", grants: { contratacion: ["elaborar"] },
+          funciones: "Estructurar y hacer seguimiento a los procesos contractuales." },
       ],
     },
     {
       codigo: "ATC", nombre: "Atención al Ciudadano — Ventanilla Única", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
-        { nombre: "Responsable de Ventanilla Única", esJefatura: true, nivel: "TECNICO", grants: { ventanilla_unica: ["radicar", "asignar", "supervisar"], gestion_documental: ["radicar", "archivar", "administrar_trd"] } },
-        { nombre: "Auxiliar de Ventanilla", nivel: "ASISTENCIAL", grants: { ventanilla_unica: ["radicar"], gestion_documental: ["radicar"] } },
+        { nombre: "Responsable de Ventanilla Única", esJefatura: true, empleoCodigo: "367-02", grants: { ventanilla_unica: ["radicar", "asignar", "supervisar"], gestion_documental: ["radicar", "archivar", "administrar_trd"] },
+          funciones: "Coordinar la recepción, radicación y asignación de PQRSD y correspondencia." },
+        { nombre: "Auxiliar de Ventanilla", empleoCodigo: "407-01", grants: { ventanilla_unica: ["radicar"], gestion_documental: ["radicar"] },
+          funciones: "Radicar correspondencia y PQRSD de atención al ciudadano." },
       ],
     },
     {
       codigo: "TH", nombre: "Oficina de Talento Humano", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
-        { nombre: "Jefe de Talento Humano", esJefatura: true, nivel: "DIRECTIVO", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] } },
-        { nombre: "Profesional de Talento Humano", nivel: "PROFESIONAL", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] } },
+        { nombre: "Jefe de Talento Humano", esJefatura: true, empleoCodigo: "068-01", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] },
+          funciones: "Dirigir la gestión del talento humano: vinculación, actos administrativos, nómina y bienestar." },
+        { nombre: "Profesional de Talento Humano", empleoCodigo: "219-02", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] },
+          funciones: "Gestionar la vinculación de funcionarios y los actos administrativos de personal." },
       ],
     },
     {
       codigo: "HAC", nombre: "Secretaría de Hacienda", tipo: "SECRETARIA", padreCodigo: "DESP",
       cargos: [
-        { nombre: "Secretario de Hacienda", esJefatura: true, nivel: "DIRECTIVO", grants: { presupuesto: ["aprobar"], ventanilla_unica: ["responder"] } },
-        { nombre: "Profesional de Presupuesto", nivel: "PROFESIONAL", grants: { presupuesto: ["expedir_cdp", "expedir_rp"] } },
+        { nombre: "Secretario de Hacienda", esJefatura: true, empleoCodigo: "020-01", grants: { presupuesto: ["aprobar"], ventanilla_unica: ["responder"] } },
+        { nombre: "Profesional de Presupuesto", empleoCodigo: "222-02", grants: { presupuesto: ["expedir_cdp", "expedir_rp"] },
+          funciones: "Expedir y hacer seguimiento a CDP y RP; controlar la ejecución presupuestal." },
       ],
     },
     {
       codigo: "PLAN", nombre: "Secretaría de Planeación", tipo: "SECRETARIA", padreCodigo: "DESP",
       cargos: [
-        { nombre: "Secretario de Planeación", esJefatura: true, nivel: "DIRECTIVO", grants: { contratacion: ["elaborar"], ventanilla_unica: ["responder"] } },
+        { nombre: "Secretario de Planeación", esJefatura: true, empleoCodigo: "020-01", grants: { ventanilla_unica: ["responder"] } },
+        { nombre: "Profesional Especializado — Banco de Proyectos y Plan de Desarrollo", empleoCodigo: "222-02",
+          grants: { banco_proyectos: ["administrar", "reportar_avance", "consultar"] },
+          funciones: "Liderar el banco de proyectos y el seguimiento financiero y físico al cumplimiento del Plan de Desarrollo de todas las dependencias." },
+        { nombre: "Profesional Universitario — Seguimiento PDM y Contratación", empleoCodigo: "219-02",
+          grants: { contratacion: ["elaborar"] },
+          funciones: "Seguimiento al cumplimiento del componente de Planeación en el Plan de Desarrollo; apoyo a la contratación de la dependencia y al alumbrado público." },
+        { nombre: "Técnico Administrativo — Estratificación", empleoCodigo: "367-02",
+          funciones: "Actualizar y hacer seguimiento a la estratificación socioeconómica del municipio." },
       ],
     },
     {
       codigo: "GOB", nombre: "Secretaría de Gobierno", tipo: "SECRETARIA", padreCodigo: "DESP",
       cargos: [
-        { nombre: "Secretario de Gobierno", esJefatura: true, nivel: "DIRECTIVO", grants: { contratacion: ["elaborar"], ventanilla_unica: ["responder"] } },
+        { nombre: "Secretario de Gobierno", esJefatura: true, empleoCodigo: "020-01", grants: { contratacion: ["elaborar"], ventanilla_unica: ["responder"] } },
       ],
     },
   ],
@@ -109,20 +128,24 @@ const PERSONERIA: PlantillaEntidad = {
     {
       codigo: "ATC", nombre: "Atención al Ciudadano — Ventanilla Única", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
-        { nombre: "Responsable de Ventanilla Única", esJefatura: true, nivel: "TECNICO", grants: { ventanilla_unica: ["radicar", "asignar"], gestion_documental: ["radicar", "archivar", "administrar_trd"] } },
+        { nombre: "Responsable de Ventanilla Única", esJefatura: true, empleoCodigo: "367-02", grants: { ventanilla_unica: ["radicar", "asignar"], gestion_documental: ["radicar", "archivar", "administrar_trd"] },
+          funciones: "Coordinar la recepción, radicación y asignación de PQRSD y correspondencia." },
       ],
     },
     {
       codigo: "TH", nombre: "Talento Humano", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
-        { nombre: "Profesional de Talento Humano", nivel: "PROFESIONAL", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] } },
+        { nombre: "Profesional de Talento Humano", empleoCodigo: "219-02", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] },
+          funciones: "Gestionar la vinculación de funcionarios y los actos administrativos de personal." },
       ],
     },
     {
       codigo: "DELEG", nombre: "Personería Delegada", tipo: "OFICINA", padreCodigo: "DESP",
       cargos: [
-        { nombre: "Personero Delegado", esJefatura: true, nivel: "PROFESIONAL", grants: { ventanilla_unica: ["responder"] } },
-        { nombre: "Profesional Universitario", nivel: "PROFESIONAL", grants: { ventanilla_unica: ["responder"], gestion_documental: ["consultar"] } },
+        { nombre: "Personero Delegado", esJefatura: true, empleoCodigo: "222-02", grants: { ventanilla_unica: ["responder"] },
+          funciones: "Ejercer las funciones delegadas por el Personero Municipal en materia de derechos humanos y ministerio público." },
+        { nombre: "Profesional Universitario", empleoCodigo: "219-01", grants: { ventanilla_unica: ["responder"], gestion_documental: ["consultar"] },
+          funciones: "Apoyar las funciones misionales de la Personería Delegada." },
       ],
     },
   ],
@@ -159,12 +182,13 @@ function ordenarPorJerarquia(deps: PlantillaDependencia[]): PlantillaDependencia
   return out
 }
 
-export type SembradorDB = Pick<PrismaClient, "dependencia" | "cargo">
+export type SembradorDB = Pick<PrismaClient, "dependencia" | "cargo" | "empleoDafp">
 
 /**
  * Siembra en la BD del tenant el árbol de dependencias + cargos de la plantilla del tipo de
  * entidad. Idempotente: las dependencias por `codigo` y los cargos por (dependencia, nombre)
  * se upsertean, así re-aplicarla no duplica. Devuelve cuántas dependencias/cargos quedaron.
+ * Requiere que `sembrarEmpleosDafp` ya haya corrido (resuelve `empleoCodigo` → `empleoId`/`nivel`).
  */
 export async function aplicarPlantilla(
   db: SembradorDB,
@@ -172,6 +196,9 @@ export async function aplicarPlantilla(
 ): Promise<{ dependencias: number; cargos: number }> {
   const plantilla = PLANTILLAS_POR_TIPO[tipoEntidad]
   if (!plantilla) throw new Error(`No hay plantilla de cargos para el tipo de entidad "${tipoEntidad}".`)
+
+  const empleos = await db.empleoDafp.findMany()
+  const empleoPorCodigo = new Map(empleos.map((e) => [e.codigo, e]))
 
   const idPorCodigo = new Map<string, string>()
   const ordenadas = ordenarPorJerarquia(plantilla.dependencias)
@@ -189,11 +216,14 @@ export async function aplicarPlantilla(
     for (const c of d.cargos) {
       const existente = await db.cargo.findFirst({ where: { dependenciaId: dep.id, nombre: c.nombre } })
       const grants = (c.grants ?? {}) as object
-      const nivel = c.nivel ?? null
+      const empleo = c.empleoCodigo ? empleoPorCodigo.get(c.empleoCodigo) ?? null : null
+      const empleoId = empleo?.id ?? null
+      const nivel = empleo?.nivel ?? null
+      const funciones = c.funciones ?? null
       if (existente) {
-        await db.cargo.update({ where: { id: existente.id }, data: { esJefatura: !!c.esJefatura, grants, nivel } })
+        await db.cargo.update({ where: { id: existente.id }, data: { esJefatura: !!c.esJefatura, grants, empleoId, nivel, funciones } })
       } else {
-        await db.cargo.create({ data: { dependenciaId: dep.id, nombre: c.nombre, esJefatura: !!c.esJefatura, grants, nivel } })
+        await db.cargo.create({ data: { dependenciaId: dep.id, nombre: c.nombre, esJefatura: !!c.esJefatura, grants, empleoId, nivel, funciones } })
         cargos++
       }
     }

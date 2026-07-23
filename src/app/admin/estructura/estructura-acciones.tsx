@@ -15,14 +15,22 @@ interface Opcion {
 interface DepOpcion extends Opcion {
   codigo: string
 }
+interface EmpleoOpcion {
+  id: string
+  codigo: string
+  denominacion: string
+}
+interface CargoOpcion extends Opcion {
+  depCodigo: string
+}
 
 interface Props {
   tipoEntidad: string
   hayPlantilla: boolean
   dependencias: DepOpcion[]
+  empleos: EmpleoOpcion[]
+  cargos: CargoOpcion[]
 }
-
-const NIVELES = ["ASISTENCIAL", "TECNICO", "PROFESIONAL", "ASESOR", "DIRECTIVO"]
 
 const inicial: AccionState = {}
 const INPUT = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -43,7 +51,7 @@ function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNo
   )
 }
 
-export function EstructuraAcciones({ tipoEntidad, hayPlantilla, dependencias }: Props) {
+export function EstructuraAcciones({ tipoEntidad, hayPlantilla, dependencias, empleos, cargos }: Props) {
   const [sembrarState, sembrarAction, sembrando] = useActionState(async () => sembrarEstructuraAction(), inicial)
   const [depState, depAction, depPend] = useActionState(crearDependenciaAction, inicial)
   const [cargoState, cargoAction, cargoPend] = useActionState(crearCargoAction, inicial)
@@ -97,11 +105,18 @@ export function EstructuraAcciones({ tipoEntidad, hayPlantilla, dependencias }: 
               <option key={d.id} value={d.id}>{d.codigo} · {d.nombre}</option>
             ))}
           </select>
-          <input name="nombre" placeholder="Nombre del cargo" required className={INPUT} />
-          <select name="nivel" defaultValue="" className={INPUT}>
-            <option value="">— Sin nivel (elección/período fijo) —</option>
-            {NIVELES.map((n) => (
-              <option key={n} value={n}>{n}</option>
+          <input name="nombre" placeholder="Nombre del cargo (ej. Profesional Especializado — Banco de Proyectos)" required className={INPUT} />
+          <select name="empleoId" defaultValue="" className={INPUT}>
+            <option value="">— Sin empleo (elección/período fijo) —</option>
+            {empleos.map((e) => (
+              <option key={e.id} value={e.id}>{e.codigo} · {e.denominacion}</option>
+            ))}
+          </select>
+          <textarea name="funciones" placeholder="Funciones específicas de este cargo (ej. Estratificación socioeconómica municipal)" rows={2} className={INPUT} />
+          <select name="jefeInmediatoId" defaultValue="" className={INPUT}>
+            <option value="">— Sin jefe inmediato específico —</option>
+            {cargos.map((c) => (
+              <option key={c.id} value={c.id}>{c.depCodigo} · {c.nombre}</option>
             ))}
           </select>
           <label className="flex items-center gap-2 text-sm text-slate-600">

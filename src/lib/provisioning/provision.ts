@@ -9,6 +9,7 @@ import { createNeonProject, deleteNeonProject } from "./neon"
 import { applyTenantSchema } from "./schema-apply"
 import { tenantClientDesde } from "@/lib/tenant-db"
 import { aplicarPlantilla, hayPlantilla } from "@/lib/dominio/plantillas-cargo"
+import { sembrarEmpleosDafp } from "@/lib/dominio/empleos-dafp"
 
 export interface ProvisionTenantInput {
   slug: string
@@ -73,6 +74,7 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
     let cargos = 0
     const estructuraSembrada = hayPlantilla(input.tipoEntidad)
     try {
+      await sembrarEmpleosDafp(db) // catálogo DAFP primero: aplicarPlantilla resuelve empleoCodigo→empleoId
       if (estructuraSembrada) {
         const r = await aplicarPlantilla(db, input.tipoEntidad)
         dependencias = r.dependencias

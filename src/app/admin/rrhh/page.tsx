@@ -5,7 +5,6 @@ export const dynamic = "force-dynamic"
 
 const VIA_LABEL: Record<string, string> = { TITULAR: "titular", ENCARGADO: "encargo", PROVISIONAL: "provisional" }
 const AUSENCIA_LABEL: Record<string, string> = { VACACIONES: "vacaciones", LICENCIA: "licencia", COMISION: "comisión", INCAPACIDAD: "incapacidad" }
-const NIVEL_LABEL: Record<string, string> = { ASISTENCIAL: "Asistencial", TECNICO: "Técnico", PROFESIONAL: "Profesional", ASESOR: "Asesor", DIRECTIVO: "Directivo" }
 
 function hoy(): Date {
   const d = new Date()
@@ -44,7 +43,7 @@ export default async function RrhhPage() {
         ausencias: { orderBy: { desde: "desc" } },
       },
     }),
-    db.cargo.findMany({ where: { activo: true }, orderBy: { nombre: "asc" }, include: { dependencia: true } }),
+    db.cargo.findMany({ where: { activo: true }, orderBy: { nombre: "asc" }, include: { dependencia: true, empleo: true } }),
   ])
 
   const ahora = hoy()
@@ -63,7 +62,7 @@ export default async function RrhhPage() {
         puedeGestionarFuncionarios={puedeGestionarFuncionarios}
         puedeActosAdministrativos={puedeActosAdministrativos}
         funcionarios={usuarios.map((u) => ({ id: u.id, nombre: `${u.nombre} ${u.apellido}` }))}
-        cargos={cargos.map((c) => ({ id: c.id, nombre: `${c.nombre}${c.nivel ? ` (${NIVEL_LABEL[c.nivel]})` : ""}`, depCodigo: c.dependencia.codigo }))}
+        cargos={cargos.map((c) => ({ id: c.id, nombre: `${c.nombre}${c.empleo ? ` — ${c.empleo.denominacion}` : ""}`, depCodigo: c.dependencia.codigo }))}
       />
 
       <section className="mt-8">
@@ -96,6 +95,7 @@ export default async function RrhhPage() {
                               {v.cargo.dependencia.codigo} · {v.cargo.nombre}
                             </span>{" "}
                             <span className="text-slate-400">({VIA_LABEL[v.tipo] ?? v.tipo}{v.actoAdmin ? ` · ${v.actoAdmin}` : ""})</span>
+                            {v.cargo.funciones && <div className="italic text-slate-400">{v.cargo.funciones}</div>}
                           </div>
                         ))}
                   </td>

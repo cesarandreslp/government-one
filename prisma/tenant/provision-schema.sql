@@ -76,6 +76,19 @@ CREATE TYPE "EstadoContrato" AS ENUM ('BORRADOR', 'EN_REVISION_JURIDICA', 'DEVUE
 CREATE TYPE "TipoVersionContrato" AS ENUM ('BORRADOR_ESTRUCTURACION', 'REVISION_JURIDICA');
 
 -- CreateTable
+CREATE TABLE "empleos_dafp" (
+    "id" TEXT NOT NULL,
+    "codigo" TEXT NOT NULL,
+    "denominacion" TEXT NOT NULL,
+    "nivel" "NivelCargo" NOT NULL,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "empleos_dafp_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "dependencias" (
     "id" TEXT NOT NULL,
     "codigo" TEXT NOT NULL,
@@ -98,6 +111,9 @@ CREATE TABLE "cargos" (
     "nombre" TEXT NOT NULL,
     "esJefatura" BOOLEAN NOT NULL DEFAULT false,
     "nivel" "NivelCargo",
+    "empleoId" TEXT,
+    "funciones" TEXT,
+    "jefeInmediatoId" TEXT,
     "grants" JSONB NOT NULL DEFAULT '{}',
     "activo" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -609,6 +625,9 @@ CREATE TABLE "con_contrato_versiones" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "empleos_dafp_codigo_key" ON "empleos_dafp"("codigo");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "dependencias_codigo_key" ON "dependencias"("codigo");
 
 -- CreateIndex
@@ -616,6 +635,12 @@ CREATE INDEX "dependencias_padreId_idx" ON "dependencias"("padreId");
 
 -- CreateIndex
 CREATE INDEX "cargos_dependenciaId_idx" ON "cargos"("dependenciaId");
+
+-- CreateIndex
+CREATE INDEX "cargos_empleoId_idx" ON "cargos"("empleoId");
+
+-- CreateIndex
+CREATE INDEX "cargos_jefeInmediatoId_idx" ON "cargos"("jefeInmediatoId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "usuarios_email_key" ON "usuarios"("email");
@@ -820,6 +845,12 @@ ALTER TABLE "dependencias" ADD CONSTRAINT "dependencias_padreId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "cargos" ADD CONSTRAINT "cargos_dependenciaId_fkey" FOREIGN KEY ("dependenciaId") REFERENCES "dependencias"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cargos" ADD CONSTRAINT "cargos_empleoId_fkey" FOREIGN KEY ("empleoId") REFERENCES "empleos_dafp"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cargos" ADD CONSTRAINT "cargos_jefeInmediatoId_fkey" FOREIGN KEY ("jefeInmediatoId") REFERENCES "cargos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "vinculaciones_cargo" ADD CONSTRAINT "vinculaciones_cargo_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
