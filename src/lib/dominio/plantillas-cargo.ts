@@ -13,6 +13,8 @@ export interface PlantillaCargo {
   nombre: string
   esJefatura?: boolean
   grants?: Grants
+  /** Nivel del empleo (Decreto-Ley 785/2005). Sin definir = cargo de elección/período fijo. */
+  nivel?: "ASISTENCIAL" | "TECNICO" | "PROFESIONAL" | "ASESOR" | "DIRECTIVO"
 }
 
 export interface PlantillaDependencia {
@@ -46,41 +48,48 @@ const ALCALDIA: PlantillaEntidad = {
     {
       codigo: "JUR", nombre: "Oficina Jurídica", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
-        { nombre: "Jefe de Oficina Jurídica", esJefatura: true, grants: { contratacion: ["concepto_juridico", "revisar_juridica"] } },
-        { nombre: "Profesional Jurídico", grants: { contratacion: ["revisar_juridica"] } },
+        { nombre: "Jefe de Oficina Jurídica", esJefatura: true, nivel: "ASESOR", grants: { contratacion: ["concepto_juridico", "revisar_juridica"] } },
+        { nombre: "Profesional Jurídico", nivel: "PROFESIONAL", grants: { contratacion: ["revisar_juridica"] } },
       ],
     },
     {
       codigo: "CONT", nombre: "Oficina de Contratación", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
-        { nombre: "Jefe de Contratación", esJefatura: true, grants: { contratacion: ["elaborar", "aprobar"] } },
-        { nombre: "Profesional de Contratación", grants: { contratacion: ["elaborar"] } },
+        { nombre: "Jefe de Contratación", esJefatura: true, nivel: "DIRECTIVO", grants: { contratacion: ["elaborar", "aprobar"] } },
+        { nombre: "Profesional de Contratación", nivel: "PROFESIONAL", grants: { contratacion: ["elaborar"] } },
       ],
     },
     {
       codigo: "ATC", nombre: "Atención al Ciudadano — Ventanilla Única", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
-        { nombre: "Responsable de Ventanilla Única", esJefatura: true, grants: { ventanilla_unica: ["radicar", "asignar", "supervisar"], gestion_documental: ["radicar", "archivar", "administrar_trd"] } },
-        { nombre: "Auxiliar de Ventanilla", grants: { ventanilla_unica: ["radicar"], gestion_documental: ["radicar"] } },
+        { nombre: "Responsable de Ventanilla Única", esJefatura: true, nivel: "TECNICO", grants: { ventanilla_unica: ["radicar", "asignar", "supervisar"], gestion_documental: ["radicar", "archivar", "administrar_trd"] } },
+        { nombre: "Auxiliar de Ventanilla", nivel: "ASISTENCIAL", grants: { ventanilla_unica: ["radicar"], gestion_documental: ["radicar"] } },
+      ],
+    },
+    {
+      codigo: "TH", nombre: "Oficina de Talento Humano", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
+      cargos: [
+        { nombre: "Jefe de Talento Humano", esJefatura: true, nivel: "DIRECTIVO", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] } },
+        { nombre: "Profesional de Talento Humano", nivel: "PROFESIONAL", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] } },
       ],
     },
     {
       codigo: "HAC", nombre: "Secretaría de Hacienda", tipo: "SECRETARIA", padreCodigo: "DESP",
       cargos: [
-        { nombre: "Secretario de Hacienda", esJefatura: true, grants: { presupuesto: ["aprobar"], ventanilla_unica: ["responder"] } },
-        { nombre: "Profesional de Presupuesto", grants: { presupuesto: ["expedir_cdp", "expedir_rp"] } },
+        { nombre: "Secretario de Hacienda", esJefatura: true, nivel: "DIRECTIVO", grants: { presupuesto: ["aprobar"], ventanilla_unica: ["responder"] } },
+        { nombre: "Profesional de Presupuesto", nivel: "PROFESIONAL", grants: { presupuesto: ["expedir_cdp", "expedir_rp"] } },
       ],
     },
     {
       codigo: "PLAN", nombre: "Secretaría de Planeación", tipo: "SECRETARIA", padreCodigo: "DESP",
       cargos: [
-        { nombre: "Secretario de Planeación", esJefatura: true, grants: { contratacion: ["elaborar"], ventanilla_unica: ["responder"] } },
+        { nombre: "Secretario de Planeación", esJefatura: true, nivel: "DIRECTIVO", grants: { contratacion: ["elaborar"], ventanilla_unica: ["responder"] } },
       ],
     },
     {
       codigo: "GOB", nombre: "Secretaría de Gobierno", tipo: "SECRETARIA", padreCodigo: "DESP",
       cargos: [
-        { nombre: "Secretario de Gobierno", esJefatura: true, grants: { contratacion: ["elaborar"], ventanilla_unica: ["responder"] } },
+        { nombre: "Secretario de Gobierno", esJefatura: true, nivel: "DIRECTIVO", grants: { contratacion: ["elaborar"], ventanilla_unica: ["responder"] } },
       ],
     },
   ],
@@ -100,14 +109,20 @@ const PERSONERIA: PlantillaEntidad = {
     {
       codigo: "ATC", nombre: "Atención al Ciudadano — Ventanilla Única", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
-        { nombre: "Responsable de Ventanilla Única", esJefatura: true, grants: { ventanilla_unica: ["radicar", "asignar"], gestion_documental: ["radicar", "archivar", "administrar_trd"] } },
+        { nombre: "Responsable de Ventanilla Única", esJefatura: true, nivel: "TECNICO", grants: { ventanilla_unica: ["radicar", "asignar"], gestion_documental: ["radicar", "archivar", "administrar_trd"] } },
+      ],
+    },
+    {
+      codigo: "TH", nombre: "Talento Humano", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
+      cargos: [
+        { nombre: "Profesional de Talento Humano", nivel: "PROFESIONAL", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] } },
       ],
     },
     {
       codigo: "DELEG", nombre: "Personería Delegada", tipo: "OFICINA", padreCodigo: "DESP",
       cargos: [
-        { nombre: "Personero Delegado", esJefatura: true, grants: { ventanilla_unica: ["responder"] } },
-        { nombre: "Profesional Universitario", grants: { ventanilla_unica: ["responder"], gestion_documental: ["consultar"] } },
+        { nombre: "Personero Delegado", esJefatura: true, nivel: "PROFESIONAL", grants: { ventanilla_unica: ["responder"] } },
+        { nombre: "Profesional Universitario", nivel: "PROFESIONAL", grants: { ventanilla_unica: ["responder"], gestion_documental: ["consultar"] } },
       ],
     },
   ],
@@ -174,10 +189,11 @@ export async function aplicarPlantilla(
     for (const c of d.cargos) {
       const existente = await db.cargo.findFirst({ where: { dependenciaId: dep.id, nombre: c.nombre } })
       const grants = (c.grants ?? {}) as object
+      const nivel = c.nivel ?? null
       if (existente) {
-        await db.cargo.update({ where: { id: existente.id }, data: { esJefatura: !!c.esJefatura, grants } })
+        await db.cargo.update({ where: { id: existente.id }, data: { esJefatura: !!c.esJefatura, grants, nivel } })
       } else {
-        await db.cargo.create({ data: { dependenciaId: dep.id, nombre: c.nombre, esJefatura: !!c.esJefatura, grants } })
+        await db.cargo.create({ data: { dependenciaId: dep.id, nombre: c.nombre, esJefatura: !!c.esJefatura, grants, nivel } })
         cargos++
       }
     }

@@ -77,8 +77,6 @@ export default async function EstructuraPage() {
         tipoEntidad={tenant.tipoEntidad}
         hayPlantilla={hayPlantilla(tenant.tipoEntidad)}
         dependencias={dependencias.map((d) => ({ id: d.id, codigo: d.codigo, nombre: d.nombre }))}
-        cargos={cargosPlanos.map((c) => ({ id: c.id, nombre: c.nombre, depCodigo: porId.get(c.dependenciaId)?.codigo ?? "?" }))}
-        funcionarios={usuarios.map((u) => ({ id: u.id, nombre: `${u.nombre} ${u.apellido}` }))}
       />
 
       {/* Árbol de dependencias + cargos */}
@@ -107,6 +105,7 @@ export default async function EstructuraPage() {
                       <li key={c.id} className="flex flex-wrap items-center gap-2 border-l-2 border-slate-100 pl-3 text-sm">
                         <span className="text-slate-700">{c.nombre}</span>
                         {c.esJefatura && <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">jefatura</span>}
+                        {c.nivel && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{c.nivel}</span>}
                         {chips((c.grants ?? {}) as Grants).map((g) => (
                           <span key={g} className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-500">{g}</span>
                         ))}

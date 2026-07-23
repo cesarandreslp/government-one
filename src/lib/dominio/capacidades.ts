@@ -13,6 +13,7 @@ export const CAPACIDADES_POR_MODULO = {
   contratacion: ["elaborar", "revisar_juridica", "concepto_juridico", "supervisar", "aprobar"],
   presupuesto: ["consultar", "administrar", "expedir_cdp", "expedir_rp", "aprobar"],
   banco_proyectos: ["consultar", "administrar", "reportar_avance"],
+  gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"],
 } as const
 
 export type ModuloId = keyof typeof CAPACIDADES_POR_MODULO

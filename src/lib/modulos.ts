@@ -26,6 +26,7 @@ export const MODULOS: Modulo[] = [
   // ── Base (bundle Portal Institucional — siempre activo) ──────────────────────────
   { id: "gestion_documental", nombre: "Gestión Documental", categoria: "Base", base: true, ruta: "/admin/gd", descripcion: "TRD y radicación de correspondencia." },
   { id: "ventanilla_unica", nombre: "Ventanilla Única", categoria: "Base", base: true, ruta: "/admin/vu", descripcion: "PQRSD con ruteo por cargo y términos de ley." },
+  { id: "gestion_humana", nombre: "Talento Humano", categoria: "Talento Humano", base: true, ruta: "/admin/rrhh", descripcion: "Funcionarios y actos administrativos (posesión, encargo, provisional, vacaciones)." },
 
   // ── Contratables ─────────────────────────────────────────────────────────────────
   { id: "contabilidad", nombre: "Contabilidad", categoria: "Financiero", ruta: "/admin/contabilidad", descripcion: "Libro mayor con doble partida (CGC)." },
@@ -33,7 +34,7 @@ export const MODULOS: Modulo[] = [
   { id: "tesoreria", nombre: "Tesorería", categoria: "Financiero", dependeDe: ["contabilidad"], ruta: "/admin/tesoreria", descripcion: "Cuentas bancarias, movimientos y conciliación." },
   { id: "banco_proyectos", nombre: "Banco de Proyectos", categoria: "Planeación", dependeDe: ["presupuesto"], ruta: "/admin/proyectos", descripcion: "Ejecución financiera vs. física y brecha." },
   { id: "contratacion", nombre: "Contratación", categoria: "Contractual", ruta: "/admin/contratacion", descripcion: "Ley 80/1150: contratos, versiones y flujo con gating." },
-  { id: "nomina", nombre: "Nómina y Gestión Humana", categoria: "Talento Humano", dependeDe: ["contabilidad"], ruta: "/admin/nomina", descripcion: "Funcionarios, actos administrativos, liquidación y PILA." },
+  { id: "nomina", nombre: "Nómina", categoria: "Talento Humano", dependeDe: ["gestion_humana", "contabilidad"], ruta: "/admin/nomina", descripcion: "Conceptos, liquidación, PILA y posteo a Contabilidad." },
 ]
 
 const POR_ID = new Map(MODULOS.map((m) => [m.id, m]))

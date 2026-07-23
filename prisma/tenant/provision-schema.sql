@@ -1,3 +1,5 @@
+Loaded Prisma config from prisma.config.ts.
+
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
@@ -9,6 +11,9 @@ CREATE TYPE "DependenciaTipo" AS ENUM ('DESPACHO', 'SECRETARIA', 'SUBSECRETARIA'
 
 -- CreateEnum
 CREATE TYPE "VinculacionTipo" AS ENUM ('TITULAR', 'ENCARGADO', 'PROVISIONAL');
+
+-- CreateEnum
+CREATE TYPE "NivelCargo" AS ENUM ('ASISTENCIAL', 'TECNICO', 'PROFESIONAL', 'ASESOR', 'DIRECTIVO');
 
 -- CreateEnum
 CREATE TYPE "AusenciaTipo" AS ENUM ('VACACIONES', 'LICENCIA', 'COMISION', 'INCAPACIDAD');
@@ -92,6 +97,7 @@ CREATE TABLE "cargos" (
     "dependenciaId" TEXT NOT NULL,
     "nombre" TEXT NOT NULL,
     "esJefatura" BOOLEAN NOT NULL DEFAULT false,
+    "nivel" "NivelCargo",
     "grants" JSONB NOT NULL DEFAULT '{}',
     "activo" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

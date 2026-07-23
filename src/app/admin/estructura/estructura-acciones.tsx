@@ -5,8 +5,6 @@ import {
   sembrarEstructuraAction,
   crearDependenciaAction,
   crearCargoAction,
-  crearFuncionarioAction,
-  crearVinculacionAction,
   type AccionState,
 } from "./actions"
 
@@ -17,17 +15,14 @@ interface Opcion {
 interface DepOpcion extends Opcion {
   codigo: string
 }
-interface CargoOpcion extends Opcion {
-  depCodigo: string
-}
 
 interface Props {
   tipoEntidad: string
   hayPlantilla: boolean
   dependencias: DepOpcion[]
-  cargos: CargoOpcion[]
-  funcionarios: Opcion[]
 }
+
+const NIVELES = ["ASISTENCIAL", "TECNICO", "PROFESIONAL", "ASESOR", "DIRECTIVO"]
 
 const inicial: AccionState = {}
 const INPUT = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
@@ -48,12 +43,10 @@ function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNo
   )
 }
 
-export function EstructuraAcciones({ tipoEntidad, hayPlantilla, dependencias, cargos, funcionarios }: Props) {
+export function EstructuraAcciones({ tipoEntidad, hayPlantilla, dependencias }: Props) {
   const [sembrarState, sembrarAction, sembrando] = useActionState(async () => sembrarEstructuraAction(), inicial)
   const [depState, depAction, depPend] = useActionState(crearDependenciaAction, inicial)
   const [cargoState, cargoAction, cargoPend] = useActionState(crearCargoAction, inicial)
-  const [funcState, funcAction, funcPend] = useActionState(crearFuncionarioAction, inicial)
-  const [vincState, vincAction, vincPend] = useActionState(crearVinculacionAction, inicial)
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -105,6 +98,12 @@ export function EstructuraAcciones({ tipoEntidad, hayPlantilla, dependencias, ca
             ))}
           </select>
           <input name="nombre" placeholder="Nombre del cargo" required className={INPUT} />
+          <select name="nivel" defaultValue="" className={INPUT}>
+            <option value="">— Sin nivel (elección/período fijo) —</option>
+            {NIVELES.map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" name="esJefatura" /> Es jefatura (cabeza de la dependencia)
           </label>
@@ -114,49 +113,12 @@ export function EstructuraAcciones({ tipoEntidad, hayPlantilla, dependencias, ca
         <Mensaje state={cargoState} />
       </Tarjeta>
 
-      <Tarjeta titulo="Nuevo funcionario">
-        <form action={funcAction} className="grid gap-2">
-          <div className="grid grid-cols-2 gap-2">
-            <input name="nombre" placeholder="Nombre" required className={INPUT} />
-            <input name="apellido" placeholder="Apellido" required className={INPUT} />
-          </div>
-          <input name="email" type="email" placeholder="correo@entidad.gov.co" required className={INPUT} />
-          <select name="rol" defaultValue="USER" className={INPUT}>
-            {["USER", "ADMIN", "SUPER_ADMIN", "CONTRATISTA"].map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-          <p className="text-xs text-slate-400">Se crea sin contraseña; el acceso se habilita al fijarla (seed/panel).</p>
-          <button type="submit" disabled={funcPend} className={BTN}>{funcPend ? "Creando…" : "Crear funcionario"}</button>
-        </form>
-        <Mensaje state={funcState} />
-      </Tarjeta>
-
-      <Tarjeta titulo="Vincular funcionario ↔ cargo">
-        <form action={vincAction} className="grid gap-2">
-          <select name="usuarioId" required defaultValue="" className={INPUT}>
-            <option value="" disabled>— Funcionario —</option>
-            {funcionarios.map((f) => (
-              <option key={f.id} value={f.id}>{f.nombre}</option>
-            ))}
-          </select>
-          <select name="cargoId" required defaultValue="" className={INPUT}>
-            <option value="" disabled>— Cargo —</option>
-            {cargos.map((c) => (
-              <option key={c.id} value={c.id}>{c.depCodigo} · {c.nombre}</option>
-            ))}
-          </select>
-          <div className="grid grid-cols-2 gap-2">
-            <select name="tipo" defaultValue="TITULAR" className={INPUT}>
-              {["TITULAR", "ENCARGADO", "PROVISIONAL"].map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-            <input name="actoAdmin" placeholder="Acto admin. (opcional)" className={INPUT} />
-          </div>
-          <button type="submit" disabled={vincPend} className={BTN}>{vincPend ? "Vinculando…" : "Crear vínculo"}</button>
-        </form>
-        <Mensaje state={vincState} />
+      <Tarjeta titulo="Funcionarios y actos administrativos">
+        <p className="text-sm text-slate-500">
+          Crear funcionarios y registrar sus actos (posesión, encargo, provisional, vacaciones) se
+          gestiona ahora desde <span className="font-medium">Talento Humano</span> — capacidad{" "}
+          <code>gestion_humana</code>, no administración de la estructura.
+        </p>
       </Tarjeta>
     </div>
   )
