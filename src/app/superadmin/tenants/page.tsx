@@ -2,6 +2,7 @@ import { prismaMeta } from "@/lib/prisma-meta"
 import { ProvisionForm } from "./provision-form"
 import { ModulosTenant } from "./modulos-tenant"
 import { SecretoIa } from "./secreto-ia"
+import { NitTenant } from "./nit-tenant"
 import { MODULOS_CONTRATABLES } from "@/lib/modulos"
 import { obtenerSecretoTenant, type ProveedorIA } from "@/lib/tenant-secretos"
 
@@ -70,6 +71,10 @@ export default async function TenantsPage() {
             <div className="mt-3 border-t border-slate-100 pt-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Clasificación de PQRSD por IA</p>
               <SecretoIa tenantId={t.id} configurada={!!iaProveedor.get(t.id)} proveedorActual={(iaProveedor.get(t.id) ?? null) as ProveedorIA | null} />
+            </div>
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">NIT (aportante PILA/DIAN)</p>
+              <NitTenant tenantId={t.id} nit={t.nit} />
             </div>
           </div>
         ))}

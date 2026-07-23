@@ -11,6 +11,7 @@ import { requerirFuncionario, funcionarioPuede } from "@/lib/dal-tenant"
 const MODULO = "gestion_humana"
 const VINC_TIPOS = ["TITULAR", "ENCARGADO", "PROVISIONAL"]
 const AUSENCIA_TIPOS = ["VACACIONES", "LICENCIA", "COMISION", "INCAPACIDAD"]
+const TIPOS_DOCUMENTO = ["CC", "CE", "PA", "NIT", "OTRO"]
 
 export interface AccionState {
   ok?: boolean
@@ -26,15 +27,20 @@ export async function crearFuncionarioAction(_prev: AccionState, formData: FormD
   const email = String(formData.get("email") ?? "").trim().toLowerCase()
   const nombre = String(formData.get("nombre") ?? "").trim()
   const apellido = String(formData.get("apellido") ?? "").trim()
+  const documento = String(formData.get("documento") ?? "").trim() || null
+  const tipoDocumentoRaw = String(formData.get("tipoDocumento") ?? "").trim()
+  const tipoDocumento = TIPOS_DOCUMENTO.includes(tipoDocumentoRaw) ? tipoDocumentoRaw : null
 
   if (!email || !nombre || !apellido) return { ok: false, error: "Correo, nombre y apellido son obligatorios." }
 
   try {
-    await ctx.db.usuario.create({ data: { email, nombre, apellido, rol: "USER" } })
+    await ctx.db.usuario.create({ data: { email, nombre, apellido, rol: "USER", documento, tipoDocumento: tipoDocumento as never } })
     revalidatePath("/admin/rrhh")
     return { ok: true, mensaje: `Funcionario "${nombre} ${apellido}" creado. Ahora regístrale un acto administrativo para vincularlo a un cargo.` }
   } catch (e) {
-    const msg = e instanceof Error && e.message.includes("Unique") ? `El correo "${email}" ya está registrado.` : "Error al crear el funcionario."
+    const msg = e instanceof Error && e.message.includes("Unique")
+      ? (e.message.includes("documento") ? `El documento "${documento}" ya está registrado.` : `El correo "${email}" ya está registrado.`)
+      : "Error al crear el funcionario."
     return { ok: false, error: msg }
   }
 }
@@ -92,6 +98,34 @@ export async function actualizarSalarioAction(_prev: AccionState, formData: Form
     return { ok: true, mensaje: "Salario actualizado." }
   } catch {
     return { ok: false, error: "Error al actualizar el salario (¿vínculo válido?)." }
+  }
+}
+
+/** Fija/corrige los datos de seguridad social de un funcionario (los necesita Nómina para PILA). */
+export async function actualizarDatosSSAction(_prev: AccionState, formData: FormData): Promise<AccionState> {
+  const ctx = await requerirFuncionario()
+  if (!(await funcionarioPuede(ctx, MODULO, "actos_administrativos"))) {
+    return { ok: false, error: "No tienes la capacidad para actualizar datos de seguridad social." }
+  }
+  const usuarioId = String(formData.get("usuarioId") ?? "").trim()
+  const codigoEps = String(formData.get("codigoEps") ?? "").trim() || null
+  const codigoAfp = String(formData.get("codigoAfp") ?? "").trim() || null
+  const codigoArl = String(formData.get("codigoArl") ?? "").trim() || null
+  const codigoCaja = String(formData.get("codigoCaja") ?? "").trim() || null
+  const claseRiesgoRaw = String(formData.get("claseRiesgoArl") ?? "").trim()
+  const claseRiesgoArl = claseRiesgoRaw ? Number(claseRiesgoRaw) : null
+
+  if (!usuarioId) return { ok: false, error: "Selecciona el funcionario." }
+  if (claseRiesgoArl !== null && (!Number.isInteger(claseRiesgoArl) || claseRiesgoArl < 1 || claseRiesgoArl > 5)) {
+    return { ok: false, error: "La clase de riesgo ARL debe ser un número entre 1 y 5." }
+  }
+
+  try {
+    await ctx.db.usuario.update({ where: { id: usuarioId }, data: { codigoEps, codigoAfp, codigoArl, codigoCaja, claseRiesgoArl } })
+    revalidatePath("/admin/rrhh")
+    return { ok: true, mensaje: "Datos de seguridad social actualizados." }
+  } catch {
+    return { ok: false, error: "Error al actualizar (¿funcionario válido?)." }
   }
 }
 

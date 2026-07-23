@@ -106,3 +106,25 @@ export async function guardarSecretoIaAction(_prev: SecretoState, formData: Form
     return { ok: false, error: "Error al guardar la clave." }
   }
 }
+
+export interface NitState {
+  ok?: boolean
+  error?: string
+}
+
+/** Fija/corrige el NIT de la entidad (aportante ante UGPP/PILA, DIAN). */
+export async function actualizarNitAction(_prev: NitState, formData: FormData): Promise<NitState> {
+  await requerirAdmin()
+  const tenantId = String(formData.get("tenantId") ?? "").trim()
+  const nit = String(formData.get("nit") ?? "").trim().replace(/\D/g, "")
+  if (!tenantId) return { ok: false, error: "Falta el tenant." }
+  if (!nit || nit.length < 8) return { ok: false, error: "El NIT debe tener al menos 8 dígitos (sin puntos ni dígito de verificación)." }
+
+  try {
+    await prismaMeta.tenant.update({ where: { id: tenantId }, data: { nit } })
+    revalidatePath("/superadmin/tenants")
+    return { ok: true }
+  } catch {
+    return { ok: false, error: "Error al guardar el NIT." }
+  }
+}

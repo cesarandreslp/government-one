@@ -1,5 +1,7 @@
 import { requerirFuncionario, funcionarioPuede } from "@/lib/dal-tenant"
 import { empleadosLiquidables } from "@/lib/nomina/salario"
+import { obtenerUvt } from "@/lib/nomina/parametro"
+import { saldosPasivosNomina } from "@/lib/nomina/pasivos"
 import { NominaAcciones } from "./nomina-acciones"
 
 export const dynamic = "force-dynamic"
@@ -38,16 +40,19 @@ export default async function NominaPage() {
     )
   }
 
-  const [periodos, conceptos, liquidaciones, cuentas, empleados] = await Promise.all([
+  const [periodos, conceptos, liquidaciones, cuentas, empleados, uvt, saldosPasivos] = await Promise.all([
     db.periodoNomina.findMany({ orderBy: { codigo: "desc" } }),
     db.conceptoNomina.findMany({ orderBy: { orden: "asc" } }),
     db.liquidacionNomina.findMany({ orderBy: { createdAt: "desc" }, take: 50, include: { usuario: true, periodo: true } }),
     db.planCuenta.findMany({ where: { permiteMovimientos: true, activa: true, codigo: { startsWith: "11" } }, orderBy: { codigo: "asc" } }),
     empleadosLiquidables(db),
+    obtenerUvt(db),
+    saldosPasivosNomina(db),
   ])
 
   const periodosAbiertos = periodos.filter((p) => p.estado === "ABIERTO").map((p) => ({ id: p.id, codigo: p.codigo }))
   const periodosLiquidados = periodos.filter((p) => p.estado === "LIQUIDADO").map((p) => ({ id: p.id, codigo: p.codigo }))
+  const periodosConLiquidacion = periodos.filter((p) => p.estado !== "ABIERTO").map((p) => ({ id: p.id, codigo: p.codigo }))
   const totalNominaMesActual = liquidaciones
     .filter((l) => l.periodo.codigo === periodos[0]?.codigo)
     .reduce((s, l) => s + Number(l.netoPagar), 0)
@@ -87,6 +92,9 @@ export default async function NominaPage() {
         periodosAbiertos={periodosAbiertos}
         periodosLiquidados={periodosLiquidados}
         cuentasBanco={cuentas.map((c) => ({ id: c.id, etiqueta: `${c.codigo} · ${c.nombre}` }))}
+        uvt={uvt}
+        periodosConLiquidacion={periodosConLiquidacion}
+        saldosPasivos={saldosPasivos.map((s) => ({ codigo: s.codigo, nombre: s.nombre, pendiente: s.pendiente }))}
       />
 
       <section className="mt-8">
@@ -152,6 +160,33 @@ export default async function NominaPage() {
           </table>
         </div>
       </section>
+
+      {puedeConsultar && (
+        <section className="mt-8">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Certificado de retenciones</h2>
+          <form method="get" action="/admin/nomina/certificado" className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <label className="text-sm">
+              <span className="mb-1 block text-slate-500">Funcionario</span>
+              <select name="usuarioId" required defaultValue="" className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900">
+                <option value="" disabled>— Funcionario —</option>
+                {empleados.map((e) => (
+                  <option key={e.usuarioId} value={e.usuarioId}>{e.nombre} {e.apellido}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block text-slate-500">Año</span>
+              <select name="anio" required defaultValue="" className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900">
+                <option value="" disabled>— Año —</option>
+                {[...new Set(periodos.map((p) => p.anio))].sort((a, b) => b - a).map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+            </label>
+            <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Ver certificado</button>
+          </form>
+        </section>
+      )}
     </main>
   )
 }

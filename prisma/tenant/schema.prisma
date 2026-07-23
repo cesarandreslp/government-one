@@ -154,6 +154,16 @@ model Usuario {
   /// Nunca se expone al cliente; la verificación compara en el servidor (ver tenant-auth.ts).
   passwordHash String?
 
+  // Identidad y seguridad social — RRHH los captura; Nómina los usa para PILA/certificados.
+  documento      String?        @unique
+  tipoDocumento  TipoDocumento?
+  codigoEps      String?
+  codigoAfp      String?
+  codigoArl      String?
+  /// Clase de riesgo ARL (1..5, Decreto 1772/1994). Null = se asume clase I (administrativo).
+  claseRiesgoArl Int?
+  codigoCaja     String?
+
   vinculaciones    VinculacionCargo[]
   ausencias        Ausencia[]
   radicados        Radicado[]
@@ -556,6 +566,7 @@ model Comprobante {
   asientos Asiento[]
   pago     Pago?
   liquidacionesNomina LiquidacionNomina[]
+  pagosPasivosNomina  NominaPagoPasivo[]
 
   // Trazabilidad cruzada (presupuesto/nómina/… postean aquí).
   fuenteModulo    String?
@@ -1033,6 +1044,10 @@ enum FormulaConcepto {
   PORCENTAJE_SUELDO
   PORCENTAJE_IBC
   PORCENTAJE_DEVENGADO
+  /// Tabla progresiva Art. 383 ET (en UVT) sobre la base gravable — la calcula el motor, no un %.
+  RETENCION_FUENTE
+  /// 66.67% del salario proporcional a los días de incapacidad desde el día 3 (Ley 100/1993 Art. 227).
+  AUXILIO_INCAPACIDAD
 }
 
 enum EstadoPeriodoNomina {
@@ -1081,6 +1096,7 @@ model PeriodoNomina {
   pagadoEn    DateTime?
 
   liquidaciones LiquidacionNomina[]
+  pilaExports   NominaPilaExport[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1132,4 +1148,52 @@ model LiquidacionNominaDetalle {
 
   @@index([liquidacionId])
   @@map("nom_liquidacion_detalles")
+}
+
+/// Parámetros de nómina vigentes del tenant (singleton: una sola fila). El UVT lo publica la DIAN
+/// cada año — se siembra con un valor de referencia y el tenant lo actualiza cuando cambie.
+model NominaParametro {
+  id  String  @id @default(cuid())
+  uvt Decimal @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("nom_parametros")
+}
+
+/// Trazabilidad de cada descarga del archivo PILA (auditoría: quién generó qué, cuándo).
+model NominaPilaExport {
+  id             String        @id @default(cuid())
+  periodoId      String
+  periodo        PeriodoNomina @relation(fields: [periodoId], references: [id])
+  totalEmpleados Int
+  generadoPor    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([periodoId])
+  @@map("nom_pila_exports")
+}
+
+/// Pago a un tercero externo (EPS/AFP/ARL/caja/DIAN) del pasivo que dejó acreditado el pago de
+/// nómina — segunda mitad del ciclo (primero se causa el pasivo al pagar la planilla, después se
+/// gira a cada entidad). Genera su propio comprobante D pasivo / C banco.
+model NominaPagoPasivo {
+  id           String       @id @default(cuid())
+  cuentaCodigo String
+  cuentaNombre String
+  tercero      String
+  terceroNit   String?
+  valor        Decimal      @db.Decimal(18, 2)
+  fecha        DateTime
+  comprobanteId String?
+  comprobante   Comprobante? @relation(fields: [comprobanteId], references: [id])
+  observacion  String?
+  creadoPor    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([comprobanteId])
+  @@map("nom_pagos_pasivos")
 }

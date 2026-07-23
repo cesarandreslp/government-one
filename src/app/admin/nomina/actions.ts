@@ -5,6 +5,11 @@ import { requerirFuncionario, funcionarioPuede } from "@/lib/dal-tenant"
 import { sembrarConceptosNomina } from "@/lib/nomina/conceptos-seed"
 import { empleadosLiquidables } from "@/lib/nomina/salario"
 import { liquidar, type ConceptoLiquidable } from "@/lib/nomina/motor"
+import { obtenerUvt, fijarUvt } from "@/lib/nomina/parametro"
+import { calcularNovedadPeriodo } from "@/lib/nomina/novedades"
+import { generarArchivoPila, type EmpleadoPila } from "@/lib/nomina/pila"
+import { saldosPasivosNomina } from "@/lib/nomina/pasivos"
+import { prismaMeta } from "@/lib/prisma-meta"
 
 // Acciones de NÓMINA. Gateadas por capacidad `nomina` (consultar/liquidar/pagar). Liquidar corre
 // el motor puro por cada funcionario con salario vigente (ver salario.ts); pagar postea UN
@@ -18,6 +23,11 @@ export interface NomState {
   mensaje?: string
 }
 
+export interface PilaState extends NomState {
+  archivo?: string
+  nombreArchivo?: string
+}
+
 export async function sembrarConceptosAction(): Promise<NomState> {
   const ctx = await requerirFuncionario()
   if (!(await funcionarioPuede(ctx, MODULO, "liquidar"))) {
@@ -29,6 +39,24 @@ export async function sembrarConceptosAction(): Promise<NomState> {
     return { ok: true, mensaje: `Catálogo de conceptos: ${r.conceptos} nuevo(s).` }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Error al sembrar los conceptos." }
+  }
+}
+
+/** Fija el UVT vigente (la DIAN lo publica cada diciembre para el año siguiente). */
+export async function actualizarUvtAction(_prev: NomState, formData: FormData): Promise<NomState> {
+  const ctx = await requerirFuncionario()
+  if (!(await funcionarioPuede(ctx, MODULO, "liquidar"))) {
+    return { ok: false, error: "No tienes la capacidad para administrar Nómina." }
+  }
+  const uvt = Number(formData.get("uvt"))
+  if (!Number.isFinite(uvt) || uvt <= 0) return { ok: false, error: "El UVT debe ser un número mayor a 0." }
+
+  try {
+    await fijarUvt(ctx.db, uvt)
+    revalidatePath("/admin/nomina")
+    return { ok: true, mensaje: `UVT actualizado a $${uvt.toLocaleString()}.` }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Error al actualizar el UVT." }
   }
 }
 
@@ -81,10 +109,16 @@ export async function liquidarPeriodoAction(_prev: NomState, formData: FormData)
   const empleados = await empleadosLiquidables(ctx.db, periodo.fechaFin)
   if (empleados.length === 0) return { ok: false, error: "Ningún funcionario tiene salario asignado (RRHH lo fija al posesionar)." }
 
+  const uvt = await obtenerUvt(ctx.db)
+
   try {
     await ctx.db.$transaction(async (tx) => {
       for (const emp of empleados) {
-        const r = liquidar(emp.salarioBasico, conceptos)
+        const ausencias = await tx.ausencia.findMany({
+          where: { usuarioId: emp.usuarioId, desde: { lte: periodo.fechaFin }, hasta: { gte: periodo.fechaInicio } },
+        })
+        const novedad = calcularNovedadPeriodo(ausencias, periodo.fechaInicio, periodo.fechaFin)
+        const r = liquidar(emp.salarioBasico, conceptos, { novedad, uvt })
         const liquidacion = await tx.liquidacionNomina.upsert({
           where: { periodoId_usuarioId: { periodoId, usuarioId: emp.usuarioId } },
           create: {
@@ -219,5 +253,132 @@ export async function pagarPeriodoAction(_prev: NomState, formData: FormData): P
     return { ok: true, mensaje: `Periodo ${periodo.codigo} pagado — comprobante contable generado por $${netoTotal.toLocaleString()}.` }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Error al pagar el periodo." }
+  }
+}
+
+/** Genera el archivo PILA (campos núcleo) de un periodo ya liquidado. Ver pila.ts para el alcance. */
+export async function generarPilaAction(_prev: PilaState, formData: FormData): Promise<PilaState> {
+  const ctx = await requerirFuncionario()
+  if (!(await funcionarioPuede(ctx, MODULO, "liquidar"))) {
+    return { ok: false, error: "No tienes la capacidad para generar la PILA." }
+  }
+  const periodoId = String(formData.get("periodoId") ?? "").trim()
+  if (!periodoId) return { ok: false, error: "Selecciona el periodo." }
+
+  const periodo = await ctx.db.periodoNomina.findUnique({ where: { id: periodoId } })
+  if (!periodo) return { ok: false, error: "Periodo no encontrado." }
+  if (periodo.estado === "ABIERTO") return { ok: false, error: `El periodo ${periodo.codigo} aún no está liquidado.` }
+
+  const tenant = await prismaMeta.tenant.findUnique({ where: { id: ctx.tenant.id }, select: { nit: true, nombre: true } })
+  if (!tenant?.nit) return { ok: false, error: "El tenant no tiene NIT configurado — pídeselo al superadmin (Superadmin → Tenants)." }
+
+  const liquidaciones = await ctx.db.liquidacionNomina.findMany({
+    where: { periodoId },
+    include: { usuario: true, detalles: { include: { concepto: true } } },
+  })
+  if (liquidaciones.length === 0) return { ok: false, error: "El periodo no tiene liquidaciones." }
+
+  const sinDocumento = liquidaciones.filter((l) => !l.usuario.documento)
+  if (sinDocumento.length > 0) {
+    const nombres = sinDocumento.map((l) => `${l.usuario.nombre} ${l.usuario.apellido}`).join(", ")
+    return { ok: false, error: `Falta el documento de identidad de: ${nombres}. RRHH debe capturarlo primero.` }
+  }
+
+  const empleados: EmpleadoPila[] = liquidaciones.map((l) => {
+    const ibc = l.detalles.filter((d) => d.concepto.constitutivoSalario).reduce((s, d) => s + Number(d.valor), 0)
+    return {
+      tipoDocumento: l.usuario.tipoDocumento ?? "CC",
+      documento: l.usuario.documento!,
+      apellidos: l.usuario.apellido,
+      nombres: l.usuario.nombre,
+      ibc,
+      diasCotizados: 30,
+      codigoEps: l.usuario.codigoEps,
+      codigoAfp: l.usuario.codigoAfp,
+      codigoArl: l.usuario.codigoArl,
+      claseRiesgoArl: l.usuario.claseRiesgoArl,
+      codigoCaja: l.usuario.codigoCaja,
+    }
+  })
+
+  const archivo = generarArchivoPila({ nit: tenant.nit, razonSocial: tenant.nombre, anio: periodo.anio, mes: periodo.mes }, empleados)
+
+  try {
+    await ctx.db.nominaPilaExport.create({
+      data: { periodoId, totalEmpleados: empleados.length, generadoPor: ctx.sesion.usuarioId },
+    })
+    return { ok: true, mensaje: `PILA generada: ${empleados.length} afiliado(s).`, archivo, nombreArchivo: `PILA-${periodo.codigo}.txt` }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Error al registrar la generación de la PILA." }
+  }
+}
+
+/** Paga a un tercero externo (EPS/AFP/ARL/caja/DIAN) el pasivo que causó el pago de nómina. */
+export async function pagarPasivoAction(_prev: NomState, formData: FormData): Promise<NomState> {
+  const ctx = await requerirFuncionario()
+  if (!(await funcionarioPuede(ctx, MODULO, "pagar"))) {
+    return { ok: false, error: "No tienes la capacidad para pagar pasivos de Nómina." }
+  }
+  const cuentaCodigo = String(formData.get("cuentaCodigo") ?? "").trim()
+  const tercero = String(formData.get("tercero") ?? "").trim()
+  const terceroNit = String(formData.get("terceroNit") ?? "").trim() || null
+  const valor = Number(formData.get("valor"))
+  const fecha = String(formData.get("fecha") ?? "").trim()
+  const cuentaBancoId = String(formData.get("cuentaBancoId") ?? "").trim()
+  const observacion = String(formData.get("observacion") ?? "").trim() || null
+
+  if (!cuentaCodigo || !tercero || !fecha || !cuentaBancoId) return { ok: false, error: "Cuenta, tercero, fecha y cuenta de banco son obligatorios." }
+  if (!Number.isFinite(valor) || valor <= 0) return { ok: false, error: "El valor debe ser mayor a 0." }
+
+  const saldos = await saldosPasivosNomina(ctx.db)
+  const saldo = saldos.find((s) => s.codigo === cuentaCodigo)
+  if (!saldo) return { ok: false, error: "No hay saldo pendiente en esa cuenta." }
+  if (valor > saldo.pendiente + 0.5) {
+    return { ok: false, error: `Excede el saldo pendiente de ${saldo.nombre}: disponible $${saldo.pendiente.toLocaleString()}.` }
+  }
+
+  const [cuentaPasivo, cuentaBanco] = await Promise.all([
+    ctx.db.planCuenta.findUnique({ where: { id: saldo.cuentaId } }),
+    ctx.db.planCuenta.findUnique({ where: { id: cuentaBancoId } }),
+  ])
+  if (!cuentaPasivo || !cuentaBanco?.permiteMovimientos) return { ok: false, error: "Cuenta inválida." }
+
+  const anio = new Date(fecha).getUTCFullYear()
+  const periodoContable = await ctx.db.periodoContable.findFirst({ where: { estado: "ABIERTO" }, orderBy: [{ anio: "desc" }, { mes: "desc" }] })
+  if (!periodoContable) return { ok: false, error: "No hay periodo contable ABIERTO para generar el comprobante." }
+
+  try {
+    await ctx.db.$transaction(async (tx) => {
+      const cons = await tx.comprobanteConsecutivo.upsert({
+        where: { tipo_anio: { tipo: "EGRESO", anio } },
+        create: { tipo: "EGRESO", anio, ultimo: 1 },
+        update: { ultimo: { increment: 1 } },
+      })
+      const numero = `CE-${anio}-${String(cons.ultimo).padStart(6, "0")}`
+      const comprobante = await tx.comprobante.create({
+        data: {
+          numero, tipo: "EGRESO", fecha: new Date(fecha), descripcion: `Pago de pasivo de nómina a ${tercero}: ${cuentaPasivo.nombre}`,
+          periodoId: periodoContable.id, anio, consecutivo: cons.ultimo, totalDebito: valor, totalCredito: valor,
+          fuenteModulo: "nomina-pasivo", creadoPor: ctx.sesion.usuarioId,
+          asientos: {
+            create: [
+              { cuentaId: saldo.cuentaId, debito: valor, credito: 0, descripcion: `Pago a ${tercero}` },
+              { cuentaId: cuentaBancoId, debito: 0, credito: valor, descripcion: `Pago a ${tercero}` },
+            ],
+          },
+        },
+      })
+      await tx.nominaPagoPasivo.create({
+        data: {
+          cuentaCodigo: saldo.codigo, cuentaNombre: cuentaPasivo.nombre, tercero, terceroNit, valor,
+          fecha: new Date(fecha), comprobanteId: comprobante.id, observacion, creadoPor: ctx.sesion.usuarioId,
+        },
+      })
+    })
+    revalidatePath("/admin/nomina")
+    revalidatePath("/admin/contabilidad")
+    return { ok: true, mensaje: `Pago a ${tercero} registrado — $${valor.toLocaleString()}.` }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Error al pagar el pasivo." }
   }
 }

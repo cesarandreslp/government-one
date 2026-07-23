@@ -29,6 +29,8 @@ model Tenant {
   slug        String @unique
   nombre      String
   tipoEntidad String // ALCALDIA | PERSONERIA | GOBERNACION | MINISTERIO … (catálogo, no quemado)
+  /// NIT de la entidad (aportante ante UGPP/PILA, DIAN). Sin puntos ni DV, solo dígitos.
+  nit         String?
 
   // Ruteo por dominio
   dominioPrincipal     String  @unique // subdominio gestionado: <slug>.ossgovernmentone.lat

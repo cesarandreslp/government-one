@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState } from "react"
-import { crearFuncionarioAction, registrarActoAction, registrarAusenciaAction, actualizarSalarioAction, type AccionState } from "./actions"
+import { crearFuncionarioAction, registrarActoAction, registrarAusenciaAction, actualizarSalarioAction, actualizarDatosSSAction, type AccionState } from "./actions"
 
 interface Opcion {
   id: string
@@ -47,6 +47,7 @@ export function RrhhAcciones({ puedeGestionarFuncionarios, puedeActosAdministrat
   const [actoState, actoAction, actoPend] = useActionState(registrarActoAction, inicial)
   const [ausState, ausAction, ausPend] = useActionState(registrarAusenciaAction, inicial)
   const [salState, salAction, salPend] = useActionState(actualizarSalarioAction, inicial)
+  const [ssState, ssAction, ssPend] = useActionState(actualizarDatosSSAction, inicial)
 
   if (!puedeGestionarFuncionarios && !puedeActosAdministrativos) return null
 
@@ -60,6 +61,15 @@ export function RrhhAcciones({ puedeGestionarFuncionarios, puedeActosAdministrat
               <input name="apellido" placeholder="Apellido" required className={INPUT} />
             </div>
             <input name="email" type="email" placeholder="correo@entidad.gov.co" required className={INPUT} />
+            <div className="grid grid-cols-[1fr_2fr] gap-2">
+              <select name="tipoDocumento" defaultValue="CC" className={INPUT}>
+                <option value="CC">CC</option>
+                <option value="CE">CE</option>
+                <option value="PA">Pasaporte</option>
+                <option value="OTRO">Otro</option>
+              </select>
+              <input name="documento" placeholder="Número de documento" className={INPUT} />
+            </div>
             <p className="text-xs text-slate-400">Se crea sin contraseña y sin cargo. Regístrale a continuación su acto de posesión.</p>
             <button type="submit" disabled={funcPend} className={BTN}>{funcPend ? "Creando…" : "Crear funcionario"}</button>
           </form>
@@ -123,6 +133,42 @@ export function RrhhAcciones({ puedeGestionarFuncionarios, puedeActosAdministrat
             </form>
           )}
           <Mensaje state={salState} />
+        </Tarjeta>
+      )}
+
+      {puedeActosAdministrativos && (
+        <Tarjeta titulo="Datos de seguridad social">
+          {funcionarios.length === 0 ? (
+            <p className="text-sm text-slate-400">No hay funcionarios.</p>
+          ) : (
+            <form action={ssAction} className="grid gap-2">
+              <select name="usuarioId" required defaultValue="" className={INPUT}>
+                <option value="" disabled>— Funcionario —</option>
+                {funcionarios.map((f) => (
+                  <option key={f.id} value={f.id}>{f.nombre}</option>
+                ))}
+              </select>
+              <div className="grid grid-cols-2 gap-2">
+                <input name="codigoEps" placeholder="Código EPS" className={INPUT} />
+                <input name="codigoAfp" placeholder="Código AFP" className={INPUT} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input name="codigoArl" placeholder="Código ARL" className={INPUT} />
+                <input name="codigoCaja" placeholder="Código Caja de Compensación" className={INPUT} />
+              </div>
+              <select name="claseRiesgoArl" defaultValue="" className={INPUT}>
+                <option value="">Clase de riesgo ARL (vacío = clase I)</option>
+                <option value="1">Clase I</option>
+                <option value="2">Clase II</option>
+                <option value="3">Clase III</option>
+                <option value="4">Clase IV</option>
+                <option value="5">Clase V</option>
+              </select>
+              <p className="text-xs text-slate-400">Códigos de afiliación reales (tal como aparecen en el UGPP/PILA). Necesarios para generar la planilla.</p>
+              <button type="submit" disabled={ssPend} className={BTN}>{ssPend ? "Guardando…" : "Guardar datos SS"}</button>
+            </form>
+          )}
+          <Mensaje state={ssState} />
         </Tarjeta>
       )}
 
