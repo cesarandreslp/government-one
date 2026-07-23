@@ -46,12 +46,17 @@ export default async function RrhhPage() {
     db.cargo.findMany({ where: { activo: true }, orderBy: { nombre: "asc" }, include: { dependencia: true, empleo: true } }),
   ])
 
-  const ahora = hoy()
-  const vigente = (r: { desde: Date; hasta: Date | null }) => r.desde <= ahora && (r.hasta === null || r.hasta >= ahora)
+  // Las vinculaciones tienen hora exacta (posesión a mitad de día) — comparar contra un "ahora"
+  // truncado a medianoche las descartaba como "aún no vigentes" el mismo día que se registraban.
+  // Las ausencias son rangos de día calendario, ahí sí truncar a medianoche es lo correcto.
+  const ahoraExacto = new Date()
+  const hoyTruncado = hoy()
+  const vigenteVinculacion = (r: { desde: Date; hasta: Date | null }) => r.desde <= ahoraExacto && (r.hasta === null || r.hasta >= ahoraExacto)
+  const vigenteAusencia = (r: { desde: Date; hasta: Date | null }) => r.desde <= hoyTruncado && (r.hasta === null || r.hasta >= hoyTruncado)
 
   const vinculacionesVigentes = usuarios.flatMap((u) =>
     u.vinculaciones
-      .filter((v) => vigente(v))
+      .filter((v) => vigenteVinculacion(v))
       .map((v) => ({
         id: v.id,
         etiqueta: `${u.nombre} ${u.apellido} — ${v.cargo.nombre} (hoy: ${v.salarioBasico ? `$${Number(v.salarioBasico).toLocaleString("es-CO")}` : "sin salario"})`,
@@ -101,7 +106,7 @@ export default async function RrhhPage() {
                       ? <span className="text-slate-400">sin actos registrados</span>
                       : u.vinculaciones.map((v) => (
                           <div key={v.id} className="mb-1.5 text-xs">
-                            <span className={vigente(v) ? "font-medium text-slate-700" : "text-slate-400 line-through"}>
+                            <span className={vigenteVinculacion(v) ? "font-medium text-slate-700" : "text-slate-400 line-through"}>
                               {v.cargo.dependencia.codigo} · {v.cargo.nombre}
                             </span>{" "}
                             <span className="text-slate-400">({VIA_LABEL[v.tipo] ?? v.tipo}{v.actoAdmin ? ` · ${v.actoAdmin}` : ""})</span>{" "}
@@ -115,7 +120,7 @@ export default async function RrhhPage() {
                       ? <span className="text-slate-400">—</span>
                       : u.ausencias.map((a) => (
                           <div key={a.id} className="mb-1.5 text-xs">
-                            <span className={vigente(a) ? "font-medium text-amber-700" : "text-slate-400"}>
+                            <span className={vigenteAusencia(a) ? "font-medium text-amber-700" : "text-slate-400"}>
                               {AUSENCIA_LABEL[a.tipo] ?? a.tipo}
                             </span>{" "}
                             <span className="text-slate-400">
