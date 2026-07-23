@@ -26,9 +26,10 @@ export default async function VuPage() {
   const ctx = await requerirFuncionario()
   const { db } = ctx
 
-  const [puedeRadicar, puedeResponder] = await Promise.all([
+  const [puedeRadicar, puedeResponder, puedeAsignar] = await Promise.all([
     funcionarioPuede(ctx, "ventanilla_unica", "radicar"),
     funcionarioPuede(ctx, "ventanilla_unica", "responder"),
+    funcionarioPuede(ctx, "ventanilla_unica", "asignar"),
   ])
 
   const [dependencias, pqrsds] = await Promise.all([
@@ -45,9 +46,9 @@ export default async function VuPage() {
 
   const pendientes = pqrsds
     .filter((p) => !CERRADAS.has(p.estado))
-    .map((p) => ({ id: p.id, etiqueta: `${p.numero} · ${p.asunto}` }))
+    .map((p) => ({ id: p.id, etiqueta: `${p.numero} · ${p.asunto} (hoy: ${p.dependencia?.codigo ?? "sin asignar"})` }))
 
-  const sinAcceso = !puedeRadicar && !puedeResponder
+  const sinAcceso = !puedeRadicar && !puedeResponder && !puedeAsignar
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -73,13 +74,14 @@ export default async function VuPage() {
       {sinAcceso && (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
           No tienes capacidades de Ventanilla Única. Pídele a un administrador un cargo con
-          <span className="font-mono"> ventanilla_unica</span> (radicar / responder).
+          <span className="font-mono"> ventanilla_unica</span> (radicar / responder / asignar).
         </div>
       )}
 
       <VuAcciones
         puedeRadicar={puedeRadicar}
         puedeResponder={puedeResponder}
+        puedeAsignar={puedeAsignar}
         dependencias={dependencias.map((d) => ({ id: d.id, etiqueta: `${d.codigo} · ${d.nombre}`, compartida: d.esServicioCompartido }))}
         pendientes={pendientes}
       />

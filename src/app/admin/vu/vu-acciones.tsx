@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState } from "react"
-import { radicarPqrsdAction, responderPqrsdAction, type VuState } from "./actions"
+import { radicarPqrsdAction, responderPqrsdAction, derivarPqrsdAction, type VuState } from "./actions"
 
 interface DepOpcion {
   id: string
@@ -16,6 +16,7 @@ interface Opcion {
 interface Props {
   puedeRadicar: boolean
   puedeResponder: boolean
+  puedeAsignar: boolean
   dependencias: DepOpcion[]
   pendientes: Opcion[]
 }
@@ -39,9 +40,10 @@ function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNo
   )
 }
 
-export function VuAcciones({ puedeRadicar, puedeResponder, dependencias, pendientes }: Props) {
+export function VuAcciones({ puedeRadicar, puedeResponder, puedeAsignar, dependencias, pendientes }: Props) {
   const [radState, radAction, radPend] = useActionState(radicarPqrsdAction, inicial)
   const [respState, respAction, respPend] = useActionState(responderPqrsdAction, inicial)
+  const [derState, derAction, derPend] = useActionState(derivarPqrsdAction, inicial)
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -100,6 +102,32 @@ export function VuAcciones({ puedeRadicar, puedeResponder, dependencias, pendien
             </form>
           )}
           <Mensaje state={respState} />
+        </Tarjeta>
+      )}
+
+      {puedeAsignar && (
+        <Tarjeta titulo="Derivar a otra dependencia">
+          {pendientes.length === 0 ? (
+            <p className="text-sm text-slate-400">No hay PQRSD pendientes para derivar.</p>
+          ) : (
+            <form action={derAction} className="grid gap-2">
+              <select name="id" required defaultValue="" className={INPUT}>
+                <option value="" disabled>— PQRSD pendiente —</option>
+                {pendientes.map((p) => (
+                  <option key={p.id} value={p.id}>{p.etiqueta}</option>
+                ))}
+              </select>
+              <select name="dependenciaId" required defaultValue="" className={INPUT}>
+                <option value="" disabled>— Dependencia destino —</option>
+                {dependencias.map((d) => (
+                  <option key={d.id} value={d.id}>{d.etiqueta}{d.compartida ? " · compartida" : ""}</option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-400">Corrige el ruteo automático cuando el contenido deja claro a quién compete de verdad.</p>
+              <button type="submit" disabled={derPend} className={BTN}>{derPend ? "Derivando…" : "Derivar"}</button>
+            </form>
+          )}
+          <Mensaje state={derState} />
         </Tarjeta>
       )}
     </div>
