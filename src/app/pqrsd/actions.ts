@@ -31,7 +31,7 @@ export async function radicarPublicoAction(_prev: RadicarPublicoState, formData:
   }
 
   try {
-    const p = await crearPqrsd(ctx.db, {
+    const p = await crearPqrsd(ctx.db, ctx.tenant.id, {
       tipo,
       canal: "WEB",
       peticionarioNombre,

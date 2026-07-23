@@ -46,7 +46,7 @@ export async function radicarPqrsdAction(_prev: VuState, formData: FormData): Pr
   }
 
   try {
-    const p = await crearPqrsd(ctx.db, {
+    const p = await crearPqrsd(ctx.db, ctx.tenant.id, {
       tipo, canal, peticionarioNombre, asunto, descripcion, dependenciaId,
       peticionarioEmail: opt(formData, "peticionarioEmail"),
       peticionarioTelefono: opt(formData, "peticionarioTelefono"),
@@ -73,7 +73,7 @@ export async function derivarPqrsdAction(_prev: VuState, formData: FormData): Pr
   if (CERRADAS.has(actual.estado)) return { ok: false, error: "No se puede derivar una PQRSD ya respondida o cerrada." }
 
   try {
-    const asignacion = await resolverAsignacionVu(ctx.db, dependenciaId)
+    const asignacion = await resolverAsignacionVu(ctx.db, ctx.tenant.id, dependenciaId, actual.descripcion)
     const p = await ctx.db.pqrsd.update({
       where: { id },
       data: {

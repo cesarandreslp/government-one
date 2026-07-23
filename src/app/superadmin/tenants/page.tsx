@@ -1,7 +1,9 @@
 import { prismaMeta } from "@/lib/prisma-meta"
 import { ProvisionForm } from "./provision-form"
 import { ModulosTenant } from "./modulos-tenant"
+import { SecretoIa } from "./secreto-ia"
 import { MODULOS_CONTRATABLES } from "@/lib/modulos"
+import { tieneSecretoTenant } from "@/lib/tenant-secretos"
 
 export const dynamic = "force-dynamic"
 
@@ -16,6 +18,9 @@ const ESTADO_COLOR: Record<string, string> = {
 
 export default async function TenantsPage() {
   const tenants = await prismaMeta.tenant.findMany({ orderBy: { createdAt: "desc" } })
+  const iaConfigurada = new Map(
+    await Promise.all(tenants.map(async (t) => [t.id, await tieneSecretoTenant(t.id, "ia")] as const)),
+  )
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -55,6 +60,10 @@ export default async function TenantsPage() {
                 contratados={Array.isArray(t.modulosContratados) ? (t.modulosContratados as string[]) : []}
                 contratables={MODULOS_CONTRATABLES.map((m) => ({ id: m.id, nombre: m.nombre, categoria: m.categoria }))}
               />
+            </div>
+            <div className="mt-3 border-t border-slate-100 pt-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Clasificación de PQRSD por IA</p>
+              <SecretoIa tenantId={t.id} configurada={iaConfigurada.get(t.id) ?? false} />
             </div>
           </div>
         ))}

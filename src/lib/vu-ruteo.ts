@@ -2,11 +2,19 @@ import "server-only"
 import type { PrismaClient } from "@/generated/tenant/client"
 import { quienEjerce, cabezaDeDependencia } from "@/lib/dominio/acceso"
 import { grantsIncluyen, type Grants } from "@/lib/dominio/capacidades"
+import { obtenerSecretoTenant } from "@/lib/tenant-secretos"
+import { clasificarCargoPqrsd, type CandidatoCargo } from "@/lib/ia/clasificar-pqrsd"
 
 // RUTEO de PQRSD por CARGO — el diferenciador del módulo. Dada la dependencia competente,
 // recomienda el CARGO responsable y resuelve al funcionario que lo EJERCE HOY (quienEjerce:
 // encargado → titular sin ausencia → …). Así, si el titular se ausenta y hay un encargado, la
 // siguiente PQRSD se asigna al encargado automáticamente, sin tocar la regla de ruteo.
+//
+// Cuando el ciudadano NO da dependencia (el caso típico del portal público), antes de caer al
+// fallback de servicio compartido se intenta clasificar por IA contra las `funciones` de los
+// cargos con capacidad de responder — solo si el tenant configuró su propia clave de IA
+// (tenant-secretos.ts). Sin clave configurada, o si la IA falla/no está segura, el comportamiento
+// es EXACTAMENTE el de siempre (fallback de servicio compartido) — nunca un caso nuevo a mano.
 
 export type RuteoDB = Pick<PrismaClient, "cargo" | "dependencia" | "vinculacionCargo" | "ausencia">
 
@@ -59,13 +67,57 @@ async function asignarEnDependencia(db: RuteoDB, dependenciaId: string): Promise
 }
 
 /**
- * Resuelve a quién se asigna una PQRSD. Si se da la dependencia competente, rutea ahí; si no
- * hay asignación posible (o no se dio dependencia), cae a una dependencia de SERVICIO COMPARTIDO
- * con capacidad de Ventanilla Única (típicamente Atención al Ciudadano). Null si nada aplica.
+ * Cargos "atendibles" tenant-wide: activos, con capacidad `ventanilla_unica:responder` y con
+ * `funciones` descritas (sin funciones no hay nada que la IA pueda comparar contra el texto).
+ */
+async function candidatosClasificables(db: RuteoDB): Promise<CandidatoCargo[]> {
+  const cargos = await db.cargo.findMany({
+    where: { activo: true, funciones: { not: null } },
+    include: { dependencia: true },
+  })
+  return cargos
+    .filter((c) => tieneResponder(c.grants))
+    .map((c) => ({
+      id: c.id,
+      depId: c.dependenciaId,
+      depCodigo: c.dependencia.codigo,
+      depNombre: c.dependencia.nombre,
+      cargoNombre: c.nombre,
+      funciones: c.funciones!,
+    }))
+}
+
+/** Clasifica por IA (si el tenant tiene clave configurada) y resuelve quién ejerce el cargo elegido. */
+async function resolverAsignacionPorIA(
+  db: RuteoDB,
+  tenantId: string,
+  descripcion: string,
+): Promise<Asignacion | null> {
+  const apiKey = await obtenerSecretoTenant(tenantId, "ia")
+  if (!apiKey) return null
+
+  const candidatos = await candidatosClasificables(db)
+  const cargoId = await clasificarCargoPqrsd(descripcion, candidatos, apiKey)
+  if (!cargoId) return null
+
+  const cargo = candidatos.find((c) => c.id === cargoId)
+  if (!cargo) return null
+  const ej = await quienEjerce(db, cargoId)
+  return { dependenciaId: cargo.depId, cargoId, cargoNombre: cargo.cargoNombre, usuarioId: ej?.usuarioId ?? null }
+}
+
+/**
+ * Resuelve a quién se asigna una PQRSD. Si se da la dependencia competente (el funcionario que
+ * radica la conoce), rutea ahí de forma determinística. Si no se dio dependencia (típico del
+ * portal público), intenta clasificar por IA contra las funciones de los cargos — y si no hay
+ * clave de IA configurada o no encuentra un match claro, cae a una dependencia de SERVICIO
+ * COMPARTIDO con capacidad de Ventanilla Única (típicamente Atención al Ciudadano). Null si nada aplica.
  */
 export async function resolverAsignacionVu(
   db: RuteoDB,
+  tenantId: string,
   dependenciaId: string | null,
+  descripcion: string,
 ): Promise<Asignacion | null> {
   if (dependenciaId) {
     const a = await asignarEnDependencia(db, dependenciaId)
@@ -75,6 +127,9 @@ export async function resolverAsignacionVu(
     const fallback = await fallbackServicioCompartido(db)
     return fallback ?? a
   }
+
+  const porIA = await resolverAsignacionPorIA(db, tenantId, descripcion)
+  if (porIA) return porIA
   return fallbackServicioCompartido(db)
 }
 

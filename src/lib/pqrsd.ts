@@ -26,14 +26,15 @@ export interface CrearPqrsdInput {
   dependenciaId?: string | null
 }
 
-export async function crearPqrsd(db: PrismaClient, input: CrearPqrsdInput) {
+export async function crearPqrsd(db: PrismaClient, tenantId: string, input: CrearPqrsdInput) {
   const anio = new Date().getFullYear()
   const diasTermino = TERMINO_DIAS[input.tipo] ?? 15
   const fechaRecepcion = new Date()
   const fechaVencimiento = sumarDiasHabiles(fechaRecepcion, diasTermino)
 
-  // Ruteo por cargo: resuelve el funcionario que EJERCE el cargo competente hoy.
-  const asignacion = await resolverAsignacionVu(db, input.dependenciaId ?? null)
+  // Ruteo por cargo: resuelve el funcionario que EJERCE el cargo competente hoy (determinístico
+  // si se dio dependencia; si no, intenta IA contra las funciones antes del fallback compartido).
+  const asignacion = await resolverAsignacionVu(db, tenantId, input.dependenciaId ?? null, input.descripcion)
 
   return db.$transaction(async (tx) => {
     const cons = await tx.pqrsdConsecutivo.upsert({

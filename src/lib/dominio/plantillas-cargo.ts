@@ -103,12 +103,24 @@ const ALCALDIA: PlantillaEntidad = {
           funciones: "Seguimiento al cumplimiento del componente de Planeación en el Plan de Desarrollo; apoyo a la contratación de la dependencia y al alumbrado público." },
         { nombre: "Técnico Administrativo — Estratificación", empleoCodigo: "367-02",
           funciones: "Actualizar y hacer seguimiento a la estratificación socioeconómica del municipio." },
+        { nombre: "Técnico Operativo — Ordenamiento Físico y Territorial", empleoCodigo: "314-02",
+          grants: { ventanilla_unica: ["responder"] },
+          funciones: "Atender trámites y consultas de ordenamiento territorial: línea de paramento, uso de suelo, licencias urbanísticas y demás asuntos del POT vigente." },
       ],
     },
     {
       codigo: "GOB", nombre: "Secretaría de Gobierno", tipo: "SECRETARIA", padreCodigo: "DESP",
       cargos: [
         { nombre: "Secretario de Gobierno", esJefatura: true, empleoCodigo: "020-01", grants: { contratacion: ["elaborar"], ventanilla_unica: ["responder"] } },
+      ],
+    },
+    {
+      codigo: "BS", nombre: "Secretaría de Bienestar Social", tipo: "SECRETARIA", padreCodigo: "DESP",
+      cargos: [
+        { nombre: "Secretario de Bienestar Social", esJefatura: true, empleoCodigo: "020-01", grants: { ventanilla_unica: ["responder"] } },
+        { nombre: "Técnico Operativo — Adulto Mayor", empleoCodigo: "314-01",
+          grants: { ventanilla_unica: ["responder"] },
+          funciones: "Atender trámites y solicitudes del programa de adulto mayor: subsidios de Colombia Mayor, afiliación y novedades de beneficiarios." },
       ],
     },
   ],

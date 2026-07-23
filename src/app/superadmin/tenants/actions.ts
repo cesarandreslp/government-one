@@ -5,6 +5,7 @@ import { provisionTenant } from "@/lib/provisioning/provision"
 import { requerirAdmin } from "@/lib/dal"
 import { prismaMeta } from "@/lib/prisma-meta"
 import { MODULOS_CONTRATABLES } from "@/lib/modulos"
+import { guardarSecretoTenant } from "@/lib/tenant-secretos"
 
 export interface ProvisionState {
   ok?: boolean
@@ -78,5 +79,26 @@ export async function actualizarModulosTenantAction(_prev: ModulosState, formDat
     return { ok: true }
   } catch {
     return { ok: false, error: "Error al actualizar los módulos." }
+  }
+}
+
+export interface SecretoState {
+  ok?: boolean
+  error?: string
+}
+
+/** Guarda la clave de IA (Anthropic) del tenant — cifrada, write-only (nunca se vuelve a mostrar). */
+export async function guardarSecretoIaAction(_prev: SecretoState, formData: FormData): Promise<SecretoState> {
+  await requerirAdmin()
+  const tenantId = String(formData.get("tenantId") ?? "").trim()
+  const valor = String(formData.get("valor") ?? "").trim()
+  if (!tenantId || !valor) return { ok: false, error: "Falta el tenant o la clave." }
+
+  try {
+    await guardarSecretoTenant(tenantId, "ia", valor)
+    revalidatePath("/superadmin/tenants")
+    return { ok: true }
+  } catch {
+    return { ok: false, error: "Error al guardar la clave." }
   }
 }
