@@ -1,4 +1,3 @@
-import "server-only"
 import { prismaMeta } from "@/lib/prisma-meta"
 import { encryptJson, decryptJson } from "@/lib/encryption"
 
