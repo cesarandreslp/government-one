@@ -6,9 +6,17 @@ import { encryptJson, decryptJson } from "@/lib/encryption"
 // blob JSON cifrado en `Tenant.secretosEncriptados` (AES-256-GCM, ver encryption.ts). El texto
 // plano nunca se expone al navegador ni se lee fuera del servidor.
 
+/** Proveedores de IA soportados — cada tenant elige el suyo según la cuenta que ya tenga. */
+export type ProveedorIA = "anthropic" | "openai" | "groq" | "gemini" | "zhipu"
+
+export interface CredencialIA {
+  proveedor: ProveedorIA
+  clave: string
+}
+
 export interface TenantSecretos {
-  /** Clave de API de Anthropic para clasificación de PQRSD por IA (y futuros usos del tenant). */
-  ia?: string
+  /** Credencial de IA del tenant (clasificación de PQRSD y futuros usos). */
+  ia?: CredencialIA
 }
 
 async function leerSecretos(tenantId: string): Promise<TenantSecretos> {

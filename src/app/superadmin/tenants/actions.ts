@@ -5,7 +5,9 @@ import { provisionTenant } from "@/lib/provisioning/provision"
 import { requerirAdmin } from "@/lib/dal"
 import { prismaMeta } from "@/lib/prisma-meta"
 import { MODULOS_CONTRATABLES } from "@/lib/modulos"
-import { guardarSecretoTenant } from "@/lib/tenant-secretos"
+import { guardarSecretoTenant, type ProveedorIA } from "@/lib/tenant-secretos"
+
+const PROVEEDORES_IA: ProveedorIA[] = ["anthropic", "openai", "groq", "gemini", "zhipu"]
 
 export interface ProvisionState {
   ok?: boolean
@@ -87,15 +89,17 @@ export interface SecretoState {
   error?: string
 }
 
-/** Guarda la clave de IA (Anthropic) del tenant — cifrada, write-only (nunca se vuelve a mostrar). */
+/** Guarda la credencial de IA del tenant — cifrada, write-only (nunca se vuelve a mostrar). */
 export async function guardarSecretoIaAction(_prev: SecretoState, formData: FormData): Promise<SecretoState> {
   await requerirAdmin()
   const tenantId = String(formData.get("tenantId") ?? "").trim()
+  const proveedor = String(formData.get("proveedor") ?? "").trim()
   const valor = String(formData.get("valor") ?? "").trim()
   if (!tenantId || !valor) return { ok: false, error: "Falta el tenant o la clave." }
+  if (!PROVEEDORES_IA.includes(proveedor as ProveedorIA)) return { ok: false, error: "Proveedor inválido." }
 
   try {
-    await guardarSecretoTenant(tenantId, "ia", valor)
+    await guardarSecretoTenant(tenantId, "ia", { proveedor: proveedor as ProveedorIA, clave: valor })
     revalidatePath("/superadmin/tenants")
     return { ok: true }
   } catch {

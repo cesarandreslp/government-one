@@ -3,7 +3,7 @@ import { ProvisionForm } from "./provision-form"
 import { ModulosTenant } from "./modulos-tenant"
 import { SecretoIa } from "./secreto-ia"
 import { MODULOS_CONTRATABLES } from "@/lib/modulos"
-import { tieneSecretoTenant } from "@/lib/tenant-secretos"
+import { obtenerSecretoTenant, type ProveedorIA } from "@/lib/tenant-secretos"
 
 export const dynamic = "force-dynamic"
 
@@ -18,8 +18,14 @@ const ESTADO_COLOR: Record<string, string> = {
 
 export default async function TenantsPage() {
   const tenants = await prismaMeta.tenant.findMany({ orderBy: { createdAt: "desc" } })
-  const iaConfigurada = new Map(
-    await Promise.all(tenants.map(async (t) => [t.id, await tieneSecretoTenant(t.id, "ia")] as const)),
+  // Solo se extrae el PROVEEDOR (no sensible) para mostrarlo — la clave nunca sale del servidor.
+  const iaProveedor = new Map(
+    await Promise.all(
+      tenants.map(async (t) => {
+        const cred = await obtenerSecretoTenant(t.id, "ia")
+        return [t.id, cred?.proveedor ?? null] as const
+      }),
+    ),
   )
 
   return (
@@ -63,7 +69,7 @@ export default async function TenantsPage() {
             </div>
             <div className="mt-3 border-t border-slate-100 pt-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Clasificación de PQRSD por IA</p>
-              <SecretoIa tenantId={t.id} configurada={iaConfigurada.get(t.id) ?? false} />
+              <SecretoIa tenantId={t.id} configurada={!!iaProveedor.get(t.id)} proveedorActual={(iaProveedor.get(t.id) ?? null) as ProveedorIA | null} />
             </div>
           </div>
         ))}

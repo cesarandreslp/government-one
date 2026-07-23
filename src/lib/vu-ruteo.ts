@@ -93,11 +93,11 @@ async function resolverAsignacionPorIA(
   tenantId: string,
   descripcion: string,
 ): Promise<Asignacion | null> {
-  const apiKey = await obtenerSecretoTenant(tenantId, "ia")
-  if (!apiKey) return null
+  const credencial = await obtenerSecretoTenant(tenantId, "ia")
+  if (!credencial) return null
 
   const candidatos = await candidatosClasificables(db)
-  const cargoId = await clasificarCargoPqrsd(descripcion, candidatos, apiKey)
+  const cargoId = await clasificarCargoPqrsd(descripcion, candidatos, credencial)
   if (!cargoId) return null
 
   const cargo = candidatos.find((c) => c.id === cargoId)
