@@ -486,6 +486,7 @@ model PlanCuenta {
   parent   PlanCuenta?  @relation("CuentaJerarquia", fields: [parentId], references: [id])
   hijos    PlanCuenta[] @relation("CuentaJerarquia")
   asientos Asiento[]
+  cuentasTesoreria TesoCuenta[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -597,6 +598,7 @@ model Asiento {
   debito        Decimal     @default(0) @db.Decimal(18, 2)
   credito       Decimal     @default(0) @db.Decimal(18, 2)
   descripcion   String?
+  tesoConciliacion TesoConciliacion?
 
   createdAt DateTime @default(now())
 
@@ -1196,4 +1198,114 @@ model NominaPagoPasivo {
 
   @@index([comprobanteId])
   @@map("nom_pagos_pasivos")
+}
+
+// ───────────────────── Módulo: TESORERÍA (cuentas + conciliación bancaria) ─────────────────────
+// Diferenciador de diseño: Tesorería NO duplica un libro de movimientos aparte. Presupuesto (Pago),
+// Nómina (pago de periodo, pago de pasivo) y Contabilidad (comprobante manual) YA generan Asientos
+// reales sobre la cuenta bancaria (`Asiento.cuentaId` = `TesoCuenta.cuentaContableId`) — el
+// "movimiento de tesorería" es una VISTA derivada de esos Asientos, nunca una segunda captura. Solo
+// se agrega una vía de captura para lo que genuinamente no nace en otro módulo (recaudo directo,
+// rendimientos financieros, traslados entre cuentas propias) — y esa vía también postea un
+// Comprobante real, igual que todo lo demás; nunca queda fuera del libro mayor.
+
+enum TesoCuentaTipo {
+  CORRIENTE
+  AHORROS
+  INVERSION_TEMPORAL
+  FONDOS_ESPECIALES
+}
+
+/// Cuenta bancaria institucional, ligada a su cuenta contable REAL (no texto libre) — así el saldo
+/// de tesorería siempre es el mismo número que el libro mayor, nunca dos verdades distintas.
+model TesoCuenta {
+  id               String         @id @default(cuid())
+  nombre           String
+  banco            String
+  nitBanco         String?
+  numeroCuenta     String
+  tipo             TesoCuentaTipo @default(CORRIENTE)
+  activa           Boolean        @default(true)
+  cuentaContableId String
+  cuentaContable   PlanCuenta     @relation(fields: [cuentaContableId], references: [id])
+
+  extractos      TesoExtracto[]
+  conciliaciones TesoConciliacion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cuentaContableId])
+  @@map("teso_cuentas")
+}
+
+/// Extracto bancario cargado por periodo (un solo extracto por cuenta+mes).
+model TesoExtracto {
+  id           String     @id @default(cuid())
+  cuentaId     String
+  cuenta       TesoCuenta @relation(fields: [cuentaId], references: [id])
+  periodo      String // "2026-07"
+  saldoInicial Decimal    @db.Decimal(18, 2)
+  saldoFinal   Decimal    @db.Decimal(18, 2)
+  cargadoPor   String?
+  observacion  String?
+
+  lineas TesoExtractoLinea[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([cuentaId, periodo])
+  @@index([cuentaId])
+  @@map("teso_extractos")
+}
+
+/// Línea del extracto (una fila del PDF/CSV que el banco entrega).
+model TesoExtractoLinea {
+  id          String       @id @default(cuid())
+  extractoId  String
+  extracto    TesoExtracto @relation(fields: [extractoId], references: [id], onDelete: Cascade)
+  fecha       DateTime
+  descripcion String
+  referencia  String?
+  debito      Decimal?     @db.Decimal(18, 2)
+  credito     Decimal?     @db.Decimal(18, 2)
+  saldo       Decimal?     @db.Decimal(18, 2)
+
+  conciliacionLinea TesoConciliacionLinea?
+
+  createdAt DateTime @default(now())
+
+  @@index([extractoId])
+  @@map("teso_extracto_lineas")
+}
+
+/// Concilia UN Asiento real (ya contabilizado por el módulo que lo originó) contra 1+ líneas del
+/// extracto — nunca crea un movimiento paralelo, apunta al que ya existe en el libro mayor.
+model TesoConciliacion {
+  id            String     @id @default(cuid())
+  cuentaId      String
+  cuenta        TesoCuenta @relation(fields: [cuentaId], references: [id])
+  asientoId     String     @unique
+  asiento       Asiento    @relation(fields: [asientoId], references: [id])
+  conciliadoPor String?
+
+  lineas TesoConciliacionLinea[]
+
+  createdAt DateTime @default(now())
+
+  @@index([cuentaId])
+  @@map("teso_conciliaciones")
+}
+
+/// Une una conciliación con cada línea del extracto que la compone (soporta 1:1 y N:1 — el banco
+/// suele desglosar un solo pago en varias líneas, ej. principal + retenciones).
+model TesoConciliacionLinea {
+  id              String            @id @default(cuid())
+  conciliacionId  String
+  conciliacion    TesoConciliacion  @relation(fields: [conciliacionId], references: [id], onDelete: Cascade)
+  extractoLineaId String            @unique
+  extractoLinea   TesoExtractoLinea @relation(fields: [extractoLineaId], references: [id])
+
+  @@index([conciliacionId])
+  @@map("teso_conciliacion_lineas")
 }

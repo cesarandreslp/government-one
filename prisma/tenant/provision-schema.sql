@@ -84,6 +84,9 @@ CREATE TYPE "FormulaConcepto" AS ENUM ('FIJO', 'PORCENTAJE_SUELDO', 'PORCENTAJE_
 -- CreateEnum
 CREATE TYPE "EstadoPeriodoNomina" AS ENUM ('ABIERTO', 'LIQUIDADO', 'PAGADO', 'CERRADO');
 
+-- CreateEnum
+CREATE TYPE "TesoCuentaTipo" AS ENUM ('CORRIENTE', 'AHORROS', 'INVERSION_TEMPORAL', 'FONDOS_ESPECIALES');
+
 -- CreateTable
 CREATE TABLE "empleos_dafp" (
     "id" TEXT NOT NULL,
@@ -744,6 +747,71 @@ CREATE TABLE "nom_pagos_pasivos" (
     CONSTRAINT "nom_pagos_pasivos_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "teso_cuentas" (
+    "id" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "banco" TEXT NOT NULL,
+    "nitBanco" TEXT,
+    "numeroCuenta" TEXT NOT NULL,
+    "tipo" "TesoCuentaTipo" NOT NULL DEFAULT 'CORRIENTE',
+    "activa" BOOLEAN NOT NULL DEFAULT true,
+    "cuentaContableId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "teso_cuentas_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "teso_extractos" (
+    "id" TEXT NOT NULL,
+    "cuentaId" TEXT NOT NULL,
+    "periodo" TEXT NOT NULL,
+    "saldoInicial" DECIMAL(18,2) NOT NULL,
+    "saldoFinal" DECIMAL(18,2) NOT NULL,
+    "cargadoPor" TEXT,
+    "observacion" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "teso_extractos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "teso_extracto_lineas" (
+    "id" TEXT NOT NULL,
+    "extractoId" TEXT NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "descripcion" TEXT NOT NULL,
+    "referencia" TEXT,
+    "debito" DECIMAL(18,2),
+    "credito" DECIMAL(18,2),
+    "saldo" DECIMAL(18,2),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "teso_extracto_lineas_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "teso_conciliaciones" (
+    "id" TEXT NOT NULL,
+    "cuentaId" TEXT NOT NULL,
+    "asientoId" TEXT NOT NULL,
+    "conciliadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "teso_conciliaciones_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "teso_conciliacion_lineas" (
+    "id" TEXT NOT NULL,
+    "conciliacionId" TEXT NOT NULL,
+    "extractoLineaId" TEXT NOT NULL,
+
+    CONSTRAINT "teso_conciliacion_lineas_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "empleos_dafp_codigo_key" ON "empleos_dafp"("codigo");
 
@@ -990,6 +1058,30 @@ CREATE INDEX "nom_pila_exports_periodoId_idx" ON "nom_pila_exports"("periodoId")
 -- CreateIndex
 CREATE INDEX "nom_pagos_pasivos_comprobanteId_idx" ON "nom_pagos_pasivos"("comprobanteId");
 
+-- CreateIndex
+CREATE INDEX "teso_cuentas_cuentaContableId_idx" ON "teso_cuentas"("cuentaContableId");
+
+-- CreateIndex
+CREATE INDEX "teso_extractos_cuentaId_idx" ON "teso_extractos"("cuentaId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "teso_extractos_cuentaId_periodo_key" ON "teso_extractos"("cuentaId", "periodo");
+
+-- CreateIndex
+CREATE INDEX "teso_extracto_lineas_extractoId_idx" ON "teso_extracto_lineas"("extractoId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "teso_conciliaciones_asientoId_key" ON "teso_conciliaciones"("asientoId");
+
+-- CreateIndex
+CREATE INDEX "teso_conciliaciones_cuentaId_idx" ON "teso_conciliaciones"("cuentaId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "teso_conciliacion_lineas_extractoLineaId_key" ON "teso_conciliacion_lineas"("extractoLineaId");
+
+-- CreateIndex
+CREATE INDEX "teso_conciliacion_lineas_conciliacionId_idx" ON "teso_conciliacion_lineas"("conciliacionId");
+
 -- AddForeignKey
 ALTER TABLE "dependencias" ADD CONSTRAINT "dependencias_padreId_fkey" FOREIGN KEY ("padreId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -1127,4 +1219,31 @@ ALTER TABLE "nom_pila_exports" ADD CONSTRAINT "nom_pila_exports_periodoId_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "nom_pagos_pasivos" ADD CONSTRAINT "nom_pagos_pasivos_comprobanteId_fkey" FOREIGN KEY ("comprobanteId") REFERENCES "cp_comprobantes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "teso_cuentas" ADD CONSTRAINT "teso_cuentas_cuentaContableId_fkey" FOREIGN KEY ("cuentaContableId") REFERENCES "cp_plan_cuentas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "teso_extractos" ADD CONSTRAINT "teso_extractos_cuentaId_fkey" FOREIGN KEY ("cuentaId") REFERENCES "teso_cuentas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "teso_extracto_lineas" ADD CONSTRAINT "teso_extracto_lineas_extractoId_fkey" FOREIGN KEY ("extractoId") REFERENCES "teso_extractos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "teso_conciliaciones" ADD CONSTRAINT "teso_conciliaciones_cuentaId_fkey" FOREIGN KEY ("cuentaId") REFERENCES "teso_cuentas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "teso_conciliaciones" ADD CONSTRAINT "teso_conciliaciones_asientoId_fkey" FOREIGN KEY ("asientoId") REFERENCES "cp_asientos"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "teso_conciliacion_lineas" ADD CONSTRAINT "teso_conciliacion_lineas_conciliacionId_fkey" FOREIGN KEY ("conciliacionId") REFERENCES "teso_conciliaciones"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "teso_conciliacion_lineas" ADD CONSTRAINT "teso_conciliacion_lineas_extractoLineaId_fkey" FOREIGN KEY ("extractoLineaId") REFERENCES "teso_extracto_lineas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+┌─────────────────────────────────────────────────────────┐
+│  Update available 7.8.0 -> 7.9.0                        │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
 
