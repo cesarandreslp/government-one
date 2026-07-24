@@ -75,12 +75,20 @@ const ALCALDIA: PlantillaEntidad = {
       ],
     },
     {
+      // Cargos diferenciados (mismo criterio que Hacienda): la Administración de Personal
+      // (vinculación/actos administrativos) y la Nómina (liquidación salarial) son procesos
+      // separados en toda entidad territorial real — la Nómina es, según el comparativo, "uno
+      // de los procesos más críticos" y merece su propio responsable, no el mismo que vincula
+      // funcionarios. El jefe supervisa ambos (consulta) sin operar el detalle de nómina.
       codigo: "TH", nombre: "Oficina de Talento Humano", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
-        { nombre: "Jefe de Talento Humano", esJefatura: true, empleoCodigo: "068-01", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] },
-          funciones: "Dirigir la gestión del talento humano: vinculación, actos administrativos, nómina y bienestar." },
+        { nombre: "Jefe de Talento Humano", esJefatura: true, empleoCodigo: "068-01",
+          grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"], nomina: ["consultar"] },
+          funciones: "Dirigir la gestión del talento humano: vinculación, actos administrativos y bienestar; supervisar la liquidación de nómina." },
         { nombre: "Profesional de Talento Humano", empleoCodigo: "219-02", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] },
-          funciones: "Gestionar la vinculación de funcionarios y los actos administrativos de personal." },
+          funciones: "Gestionar la vinculación de funcionarios y los actos administrativos de personal (posesión, encargo, provisional, vacaciones)." },
+        { nombre: "Profesional de Nómina", empleoCodigo: "222-01", grants: { nomina: ["consultar", "liquidar", "pagar"] },
+          funciones: "Liquidar la nómina mensual, generar la PILA y pagar los pasivos a EPS/AFP/ARL/caja — separado de quien gestiona la vinculación." },
       ],
     },
     {
@@ -164,6 +172,8 @@ const PERSONERIA: PlantillaEntidad = {
       cargos: [
         { nombre: "Profesional de Talento Humano", empleoCodigo: "219-02", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] },
           funciones: "Gestionar la vinculación de funcionarios y los actos administrativos de personal." },
+        { nombre: "Profesional de Nómina", empleoCodigo: "222-01", grants: { nomina: ["consultar", "liquidar", "pagar"] },
+          funciones: "Liquidar la nómina mensual, generar la PILA y pagar los pasivos a EPS/AFP/ARL/caja — separado de quien gestiona la vinculación." },
       ],
     },
     {
