@@ -718,3 +718,76 @@ incremento" salvo simplificaciones legales estándar declaradas honestamente (no
 **Siguiente:** Tesorería (único módulo del catálogo `MODULOS_CONTRATABLES` sin página aún) — y revisar qué
 más le falta a un módulo de Hacienda Pública completo (Contabilidad+Presupuesto+Tesorería+Nómina) antes de
 darlo por cerrado.
+
+## Progreso — Paso 4: Tesorería COMPLETA (2026-07-24, commit `fa324de`)
+
+**Decisión de diseño (investigada antes de codear):** un subagente revisó cómo `personeriabuga` implementó
+Tesorería y encontró el hueco que este rebuild debía cerrar: allá "movimiento de tesorería" es una tabla
+PROPIA con `comprobanteId`/`pagoPresupId` opcionales que en la práctica nunca se conectan — el saldo de
+tesorería vive separado del libro mayor y puede desincronizarse. En `government-one` el "movimiento de
+tesorería" **NO es una tabla — es una vista derivada de `Asiento`** (`src/lib/tesoreria/movimientos.ts`):
+cualquier pago que Presupuesto/Nómina/Contabilidad ya postearon sobre una cuenta bancaria (`cuentaContableId`)
+aparece automático, sin captura duplicada. Lo único nuevo que Tesorería aporta es capturar los movimientos
+que NO nacen en otro módulo (recaudo directo, rendimientos financieros, traslados entre cuentas propias) —
+y esos **también postean un `Comprobante` real** (`fuenteModulo: "tesoreria"`), nunca un movimiento suelto.
+
+**Modelo (tenant schema, aditivo):** `TesoCuenta` (cuenta bancaria real, enlazada 1:1 a una hoja del plan de
+cuentas 11xx), `TesoExtracto`+`TesoExtractoLinea` (extracto bancario cargado, una línea por movimiento),
+`TesoConciliacion`+`TesoConciliacionLinea` (la conciliación apunta DIRECTO al `Asiento.id` real — nunca
+duplica su valor/fecha/descripción; `@@unique([asientoId])` impide conciliar dos veces el mismo movimiento).
+`provision-schema.sql` regenerado (4 tablas nuevas); delta aplicado a todos los tenants ACTIVO con
+`migrate-tenants-diff.ts`. Capacidad `tesoreria:[consultar,administrar,conciliar]`.
+
+**UI:** `/admin/tesoreria` (KPIs, alta de cuenta, "Registrar movimiento" → transacción con `Comprobante`+2
+`Asiento` según INGRESO/EGRESO, carga de extracto por texto CSV-like) + `/admin/tesoreria/conciliar` (panel
+1:1 y N:1: radio de movimientos pendientes del libro mayor + checkboxes de líneas de extracto pendientes,
+tolerancia $1, con reversa).
+
+**Verificado EN VIVO en `demo.ossgovernmentone.lat`** (delta aplicado a demo + módulo habilitado vía
+`set-tenant-modulos.ts`): crear la cuenta "Cuenta corriente Bancolombia" (enlazada a 111005) hizo aparecer
+**automáticamente 3 movimientos reales preexistentes** (pago de nómina, pago de pasivo a EPS, un recaudo
+manual anterior) sin ninguna captura nueva — prueba directa de que "cero duplicación" funciona. Se registró
+un movimiento nuevo (comisión bancaria, EGRESO) → posteó `CE-2026-000005` real en Contabilidad. Se cargó un
+extracto de 5 líneas y se conciliaron: un caso **1:1** (recaudo $250.000) y un caso **N:1** (neto de nómina
+$8.024.420 contra 2 líneas de transferencia que suman exacto) — y se **revirtió** la conciliación 1:1,
+confirmando que el movimiento y la línea vuelven a "pendiente" sin tocar la N:1.
+
+**Módulo Tesorería: COMPLETO.**
+
+## Auditoría — qué le falta a Hacienda Pública para estar completa (2026-07-24)
+
+Con Contabilidad+Presupuesto+Tesorería+Nómina construidos y verificados, se comparó contra (a) un documento
+de investigación del usuario sobre la estructura real de Secretarías de Hacienda de 7 entidades territoriales
+colombianas (`docs/conformacion hacienda.pdf`) y (b) el estado real del código (grep, no memoria). Hallazgos:
+
+**Ya cubierto:** Presupuesto (macroproceso 1: elaboración/CDP/RP/obligación/pago), Contabilidad (macroproceso
+4: libro mayor con partida doble), Tesorería (macroproceso 3: pagos/recaudos/manejo bancario/conciliaciones).
+
+**Huecos reales identificados (verificados contra el código, no supuestos):**
+1. **Rentas/Ingresos tributarios** — "presencia muy alta" en las 7 entidades comparadas (predial, ICA,
+   sobretasa gasolina, registro, degüello). El CCPET YA tiene los 512 rubros de tipo INGRESO sembrados, pero
+   **no existe ningún flujo de liquidación/recaudo/cartera para ellos** — Presupuesto solo modela la cadena
+   del GASTO (CDP→RP→Obligación→Pago); el lado del ingreso no tiene equivalente ("Reconocimiento"+recaudo).
+   Es el hueco más grande.
+2. **Cobro Coactivo / Cartera** — "presencia alta". Sin gestión de cartera morosa, mandamientos de pago,
+   embargos. Depende de que exista primero el módulo de Rentas (no se puede cobrar cartera de un impuesto
+   que el sistema no liquida).
+3. **PAC (Programa Anual Mensualizado de Caja) por fuente de financiación** — Presupuesto no modela
+   "fuente de financiación" (SGP, recursos propios, regalías, etc.) en ninguna parte del schema, y no hay
+   mensualización de caja. Afecta a Presupuesto (elaboración) y Tesorería (programación) por igual.
+4. **Cierre de vigencia / cierre de periodo contable** — la capacidad `contabilidad:cerrar_periodo` existe en
+   el catálogo desde la fundación pero **nunca se implementó**: no hay ninguna acción que pase un
+   `PeriodoContable` a `CERRADO` (el código solo LEE ese estado para bloquear comprobantes). Cierre de
+   vigencia presupuestal (reservas presupuestales, constitución de cuentas por pagar) tampoco existe.
+5. **Estados financieros / reportes formales** — el libro mayor (Comprobante/Asiento) existe y cuadra, pero
+   no hay ningún reporte derivado: Balance General, Estado de Resultados, ni export a formato CHIP/CGN
+   (obligación legal real de reporte a la Contaduría General de la Nación).
+6. **Boletín diario de caja** — reporte rutinario de Tesorería (saldo inicial/movimientos del día/saldo
+   final) que hoy no existe como vista propia (los datos SÍ están, ya que todo se deriva del libro mayor —
+   sería una consulta nueva, no un modelo nuevo).
+7. **Crédito Público** (deuda/empréstitos) y **Fondo Territorial de Pensiones** — "presencia alta"/"media",
+   pero mucho más relevantes en gobernaciones/distritos grandes que en alcaldías/personerías pequeñas; encajan
+   en el patrón data-driven del proyecto (módulo opcional, plantilla por tipo de entidad) si se decide
+   construirlos.
+
+**No se construyó nada de esto todavía — queda para que el usuario decida el orden/alcance.**
