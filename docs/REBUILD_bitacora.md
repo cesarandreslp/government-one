@@ -936,3 +936,29 @@ Gestión Disciplinaria, Historia Laboral, Planeación del TH, Sistemas de Inform
 hoy como módulos reales en el código — el resto son huecos funcionales de Talento Humano, no de
 gobernanza de cargos, y quedan fuera de este cambio (no se inventaron capacidades para
 funcionalidad que no existe).
+
+## Auditoría — qué le falta a Talento Humano frente al comparativo (2026-07-24)
+
+Mismo ejercicio que la auditoría de Hacienda Pública, esta vez sobre `docs/Estructura Secretaría
+takento humano.pdf` (13 macroprocesos reales de Secretarías de Talento Humano colombianas)
+cruzado contra el código (`src/app/admin/rrhh/actions.ts` — solo 5 acciones existen: crear
+funcionario, registrar acto, actualizar salario, actualizar datos SS, registrar ausencia).
+
+**Cubierto:** Administración de Personal (vinculación/actos administrativos), Situaciones
+Administrativas (vacaciones/licencia/comisión/incapacidad vía `Ausencia`), Nómina completa,
+Seguridad Social solo como *códigos* de afiliación (EPS/AFP/ARL/caja) + PILA + pago de pasivos.
+
+**No construido (9 de 13 macroprocesos):** Planeación del TH, SST/SG-SST, Bienestar Social,
+Capacitación (PIC), Evaluación del Desempeño, Relaciones Laborales, Gestión Disciplinaria,
+Historia Laboral como expediente digital propio (hoy los datos existen dispersos en
+Usuario/VinculacionCargo/Ausencia, sin certificados generables ni vista unificada), y ninguna
+integración externa real (SIGEP II, SIMO, DIAN, UGPP — solo se genera el archivo PILA).
+
+**Nada construido todavía — el usuario decide el orden.** Candidatos con más peso real:
+1. **Historia Laboral + certificados laborales** — el más barato de cerrar: los datos YA existen
+   (Usuario+VinculacionCargo+Ausencia), falta una vista unificada por funcionario + generador de
+   certificado (mismo patrón que el certificado de retenciones de Nómina, ya construido).
+2. **Evaluación del Desempeño** — obligatoria por ley para empleados de carrera administrativa
+   (EDL), se apoya directo en `VinculacionCargo` ya existente.
+3. **SG-SST** — obligatorio (Decreto 1072/2015) pero el más grande de construir (matriz de
+   riesgos, COPASST, exámenes médicos, accidentalidad).

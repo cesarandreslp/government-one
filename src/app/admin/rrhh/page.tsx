@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { requerirFuncionario, funcionarioPuede } from "@/lib/dal-tenant"
 import { RrhhAcciones } from "./rrhh-acciones"
 
@@ -89,11 +90,12 @@ export default async function RrhhPage() {
                 <th className="px-4 py-3">Funcionario</th>
                 <th className="px-4 py-3">Cargos (histórico)</th>
                 <th className="px-4 py-3">Ausencias</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {usuarios.length === 0 && (
-                <tr><td colSpan={3} className="px-4 py-8 text-center text-slate-400">Aún no hay funcionarios.</td></tr>
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-400">Aún no hay funcionarios.</td></tr>
               )}
               {usuarios.map((u) => (
                 <tr key={u.id} className="align-top hover:bg-slate-50">
@@ -128,6 +130,13 @@ export default async function RrhhPage() {
                             </span>
                           </div>
                         ))}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {u.vinculaciones.length > 0 && (
+                      <Link href={`/admin/rrhh/certificado?usuarioId=${u.id}`} target="_blank" className="text-xs font-medium text-blue-600 hover:underline">
+                        Certificado
+                      </Link>
+                    )}
                   </td>
                 </tr>
               ))}
