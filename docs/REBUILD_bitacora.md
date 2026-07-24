@@ -1063,3 +1063,23 @@ Laborales, Gestión Disciplinaria, Planeación del TH, e integraciones externas 
 declaradas fuera de alcance). Junto con Hacienda Pública (Contabilidad+Presupuesto+Tesorería+
 Rentas+Cobro Coactivo), quedan **6 huecos menores de Hacienda** como único frente abierto de la
 auditoría de módulos — decisión del usuario cuándo seguir.
+
+## Progreso — Evaluación del Desempeño: corregir el flujo real (2026-07-24, commit `44aea5c`)
+
+El usuario corrigió el diseño inicial con una precisión operativa clave: **la calificación NO se
+calcula en este sistema** — la realiza el evaluador en la plataforma de la Función Pública; el
+funcionario IMPRIME el resultado y lo entrega físicamente a Talento Humano, que simplemente lo
+TRANSCRIBE y lo DIGITALIZA. No pidió eliminar nada de lo construido — el acuerdo de gestión
+(compromisos) sigue igual; el cambio es de encuadre + un campo nuevo.
+
+**Cambios:** `EvaluacionDesempeno.documentoUrl` (referencia al escaneo/PDF, mismo patrón
+sin-storage-real ya usado en `GdAdjunto`/`CapacitacionInscripcion.certificadoUrl`).
+`calificarAction` renombrada a `registrarResultadoAction` — mismo cálculo de nivel (la Función
+Pública usa la misma escala oficial CNSC), pero reencuadrado explícitamente como TRANSCRIPCIÓN +
+verificación cruzada, no como cálculo propio. UI y comentarios del schema actualizados para
+explicar el proceso real.
+
+**Verificado en vivo como Carlos (Profesional de Talento Humano):** estableció acuerdo 2026 para
+Diego López → registró resultado **94.5 → SOBRESALIENTE** con `documentoUrl` de ejemplo → la
+tabla muestra el enlace "Ver escaneo"; el registro previo de Héctor (sin documento) sigue
+mostrando "—" correctamente (campo opcional, retrocompatible).
