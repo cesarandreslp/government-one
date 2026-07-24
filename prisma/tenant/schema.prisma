@@ -1505,11 +1505,18 @@ model RentaPago {
 }
 
 // ───────────────────── Módulo: EVALUACIÓN DEL DESEMPEÑO (EDL) ─────────────────────
-// Acuerdo de gestión (compromisos al inicio del periodo) + calificación final (0-100, nivel
-// derivado) — el proceso real de carrera administrativa (Decreto 1083/2015). El evaluador de
-// referencia es el jefe inmediato del cargo (`Cargo.jefeInmediatoId`, ya existente en la
-// fundación de dominio) pero RRHH coordina el proceso y captura el resultado oficial — mismo
-// criterio que ya aplica a actos administrativos y ausencias.
+// Acuerdo de gestión (compromisos al inicio del periodo) — proceso real de carrera
+// administrativa (Decreto 1083/2015). El evaluador de referencia es el jefe inmediato del cargo
+// (`Cargo.jefeInmediatoId`, ya existente en la fundación de dominio).
+//
+// IMPORTANTE (corrección del usuario, práctica real): la CALIFICACIÓN no la calcula este
+// sistema — la realiza el funcionario/evaluador en la plataforma de la Función Pública (fuera de
+// este sistema); el resultado se IMPRIME y se entrega físicamente a Talento Humano, que
+// simplemente lo TRANSCRIBE (`calificacion`/`nivel`, tal como viene impreso) y lo DIGITALIZA
+// (`documentoUrl` — referencia al escaneo/PDF, mismo patrón de URL-sin-storage-real ya usado en
+// `GdAdjunto`/`CapacitacionInscripcion.certificadoUrl`). El nivel derivado localmente (misma
+// escala oficial CNSC que usa la Función Pública) es solo una verificación cruzada de la
+// transcripción, no un cálculo propio.
 
 enum EvaluacionEstado {
   ACUERDO_ESTABLECIDO
@@ -1538,6 +1545,9 @@ model EvaluacionDesempeno {
   nivel         EvaluacionNivel?
   observaciones String?
   fechaCalificacion DateTime?
+  /// Referencia al documento digitalizado (escaneo/PDF) del resultado impreso entregado por el
+  /// funcionario — evidencia de la evaluación realizada en la plataforma de la Función Pública.
+  documentoUrl  String?
   creadoPor     String?
   calificadoPor String?
 

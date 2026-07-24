@@ -42,7 +42,8 @@ export default async function EvaluacionPage() {
     <main className="mx-auto max-w-4xl px-6 py-10">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold text-slate-800">Evaluación del Desempeño</h1>
-        <p className="text-sm text-slate-500">{evaluaciones.length} acuerdo(s) de gestión · {pendientesCalificar.length} pendiente(s) de calificar.</p>
+        <p className="text-sm text-slate-500">{evaluaciones.length} acuerdo(s) de gestión · {pendientesCalificar.length} pendiente(s) de resultado.</p>
+        <p className="mt-1 text-xs text-slate-400">La calificación la realiza el evaluador en la plataforma de la Función Pública; aquí se registra y digitaliza el resultado impreso que entrega el funcionario.</p>
       </header>
 
       <EvaluacionAcciones
@@ -63,11 +64,12 @@ export default async function EvaluacionPage() {
                 <th className="px-4 py-3">Compromisos</th>
                 <th className="px-4 py-3 text-right">Calificación</th>
                 <th className="px-4 py-3">Nivel</th>
+                <th className="px-4 py-3">Documento</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {evaluaciones.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-400">Aún no hay acuerdos de gestión.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Aún no hay acuerdos de gestión.</td></tr>
               )}
               {evaluaciones.map((e) => (
                 <tr key={e.id} className="hover:bg-slate-50">
@@ -81,6 +83,13 @@ export default async function EvaluacionPage() {
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${NIVEL_COLOR[e.nivel]}`}>{e.nivel}</span>
                     ) : (
                       <span className="text-xs text-slate-400">en curso</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {e.documentoUrl ? (
+                      <a href={e.documentoUrl} target="_blank" rel="noreferrer" className="text-xs font-medium text-blue-600 hover:underline">Ver escaneo</a>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
                     )}
                   </td>
                 </tr>

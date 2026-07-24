@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState } from "react"
-import { establecerAcuerdoAction, calificarAction, type EvalState } from "./actions"
+import { establecerAcuerdoAction, registrarResultadoAction, type EvalState } from "./actions"
 
 interface Opcion {
   id: string
@@ -35,7 +35,7 @@ function Tarjeta({ titulo, children }: { titulo: string; children: React.ReactNo
 
 export function EvaluacionAcciones({ puedeEvaluar, usuarios, pendientesCalificar }: Props) {
   const [acuerdoState, acuerdoAction, acuerdoPend] = useActionState(establecerAcuerdoAction, inicial)
-  const [califState, califAction, califPend] = useActionState(calificarAction, inicial)
+  const [califState, califAction, califPend] = useActionState(registrarResultadoAction, inicial)
 
   if (!puedeEvaluar) return null
 
@@ -63,19 +63,24 @@ export function EvaluacionAcciones({ puedeEvaluar, usuarios, pendientesCalificar
         <Mensaje state={acuerdoState} />
       </Tarjeta>
 
-      <Tarjeta titulo="Calificar">
+      <Tarjeta titulo="Registrar y digitalizar resultado">
+        <p className="mb-3 text-xs text-slate-400">
+          La evaluación la realiza el evaluador en la plataforma de la Función Pública. El funcionario imprime el resultado
+          y lo entrega a Talento Humano — aquí solo se transcribe la calificación y se adjunta la digitalización (escaneo/PDF).
+        </p>
         {pendientesCalificar.length === 0 ? (
-          <p className="text-sm text-slate-400">No hay acuerdos pendientes de calificar.</p>
+          <p className="text-sm text-slate-400">No hay acuerdos pendientes de resultado.</p>
         ) : (
           <form action={califAction} className="grid gap-2">
             <select name="evaluacionId" required defaultValue="" className={INPUT}>
               <option value="" disabled>— Acuerdo de gestión —</option>
               {pendientesCalificar.map((e) => <option key={e.id} value={e.id}>{e.etiqueta}</option>)}
             </select>
-            <input name="calificacion" type="number" min="0" max="100" step="0.1" placeholder="Calificación (0-100)" required className={INPUT} />
+            <input name="calificacion" type="number" min="0" max="100" step="0.1" placeholder="Calificación tal como aparece impresa (0-100)" required className={INPUT} />
+            <input name="documentoUrl" type="url" placeholder="URL del documento digitalizado (opcional)" className={INPUT} />
             <textarea name="observaciones" rows={2} placeholder="Observaciones (opcional)" className={INPUT} />
-            <p className="text-xs text-slate-400">≥90 Sobresaliente · ≥75 Destacado · ≥60 Satisfactorio · &lt;60 No satisfactorio.</p>
-            <button type="submit" disabled={califPend} className={BTN}>{califPend ? "Calificando…" : "Calificar"}</button>
+            <p className="text-xs text-slate-400">≥90 Sobresaliente · ≥75 Destacado · ≥60 Satisfactorio · &lt;60 No satisfactorio (misma escala oficial CNSC — verificación cruzada de la transcripción).</p>
+            <button type="submit" disabled={califPend} className={BTN}>{califPend ? "Registrando…" : "Registrar resultado"}</button>
           </form>
         )}
         <Mensaje state={califState} />

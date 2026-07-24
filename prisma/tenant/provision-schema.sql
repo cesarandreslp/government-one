@@ -975,6 +975,7 @@ CREATE TABLE "th_evaluaciones" (
     "nivel" "EvaluacionNivel",
     "observaciones" TEXT,
     "fechaCalificacion" TIMESTAMP(3),
+    "documentoUrl" TEXT,
     "creadoPor" TEXT,
     "calificadoPor" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

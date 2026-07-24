@@ -7,6 +7,11 @@ import { quienEjerce } from "@/lib/dominio/acceso"
 // Evaluación del Desempeño Laboral (EDL). Gateada por capacidad `evaluacion_desempeno`
 // (consultar/evaluar). El evaluador se DERIVA del cargo (Cargo.jefeInmediatoId → quienEjerce) —
 // la misma fundación de dominio que ya rutea Ventanilla Única — nunca se elige a mano.
+//
+// La calificación NO se calcula aquí: la realiza el evaluador en la plataforma de la Función
+// Pública; el funcionario la imprime y la entrega físicamente a Talento Humano, que la
+// TRANSCRIBE y la DIGITALIZA (registrarResultadoAction). El nivel derivado localmente (misma
+// escala oficial CNSC) es solo una verificación cruzada de la transcripción.
 
 const MODULO = "evaluacion_desempeno"
 
@@ -65,32 +70,35 @@ export async function establecerAcuerdoAction(_prev: EvalState, formData: FormDa
   }
 }
 
-export async function calificarAction(_prev: EvalState, formData: FormData): Promise<EvalState> {
+/** Registra y digitaliza el resultado que la Función Pública ya calificó — Talento Humano lo
+ * transcribe del documento impreso que el funcionario entrega, no lo calcula. */
+export async function registrarResultadoAction(_prev: EvalState, formData: FormData): Promise<EvalState> {
   const ctx = await requerirFuncionario()
   if (!(await funcionarioPuede(ctx, MODULO, "evaluar"))) return { ok: false, error: "No tienes la capacidad para gestionar Evaluación del Desempeño." }
 
   const evaluacionId = String(formData.get("evaluacionId") ?? "").trim()
   const calificacion = Number(formData.get("calificacion"))
   const observaciones = String(formData.get("observaciones") ?? "").trim() || null
+  const documentoUrl = String(formData.get("documentoUrl") ?? "").trim() || null
 
-  if (!evaluacionId) return { ok: false, error: "Selecciona el acuerdo de gestión a calificar." }
-  if (!Number.isFinite(calificacion) || calificacion < 0 || calificacion > 100) return { ok: false, error: "La calificación debe estar entre 0 y 100." }
+  if (!evaluacionId) return { ok: false, error: "Selecciona el acuerdo de gestión." }
+  if (!Number.isFinite(calificacion) || calificacion < 0 || calificacion > 100) return { ok: false, error: "La calificación debe estar entre 0 y 100 (tal como aparece en el documento impreso)." }
 
   const evaluacion = await ctx.db.evaluacionDesempeno.findUnique({ where: { id: evaluacionId } })
   if (!evaluacion) return { ok: false, error: "Acuerdo de gestión no encontrado." }
-  if (evaluacion.estado === "CALIFICADA") return { ok: false, error: "Este acuerdo ya fue calificado." }
+  if (evaluacion.estado === "CALIFICADA") return { ok: false, error: "El resultado de este acuerdo ya fue registrado." }
 
   try {
     await ctx.db.evaluacionDesempeno.update({
       where: { id: evaluacionId },
       data: {
-        estado: "CALIFICADA", calificacion, nivel: nivelDe(calificacion), observaciones,
+        estado: "CALIFICADA", calificacion, nivel: nivelDe(calificacion), observaciones, documentoUrl,
         fechaCalificacion: new Date(), calificadoPor: ctx.sesion.usuarioId,
       },
     })
     revalidatePath("/admin/evaluacion")
-    return { ok: true, mensaje: `Calificado: ${calificacion} (${nivelDe(calificacion)}).` }
+    return { ok: true, mensaje: `Resultado registrado: ${calificacion} (${nivelDe(calificacion)}).${documentoUrl ? " Documento digitalizado adjunto." : ""}` }
   } catch {
-    return { ok: false, error: "Error al calificar." }
+    return { ok: false, error: "Error al registrar el resultado." }
   }
 }
