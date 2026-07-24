@@ -991,3 +991,75 @@ registrados muestran el enlace "Certificado" en la tabla.
 **Módulo RRHH: 1 de 9 huecos de la auditoría de Talento Humano cerrado.** Quedan 8 (Planeación
 del TH, SST, Bienestar Social, Capacitación, Evaluación del Desempeño, Relaciones Laborales,
 Gestión Disciplinaria, integraciones externas) — decisión del usuario cuándo seguir.
+
+El usuario pidió explícitamente **"continuemos, terminemos talento humano"** — se construyeron
+los 8 huecos restantes en la misma sesión.
+
+## Progreso — Talento Humano COMPLETO: 6 módulos + Planeación (2026-07-24, commit `d90a117`)
+
+**Schema en un solo lote** (12 tablas nuevas, aditivo, sin conflicto entre módulos): `EvaluacionDesempeno`;
+`SstRiesgoCargo`+`SstIncidente`+`SstExamenMedico`; `Capacitacion`+`CapacitacionInscripcion`;
+`ActividadBienestar`+`BienestarParticipante`; `PermisoSindical`;
+`ProcesoDisciplinario`+`DisciplinarioActuacion`+`DisciplinarioConsecutivo`.
+
+**Evaluación del Desempeño (EDL):** acuerdo de gestión (compromisos) + calificación 0-100 con
+nivel derivado (≥90 Sobresaliente / ≥75 Destacado / ≥60 Satisfactorio / <60 No satisfactorio). El
+evaluador se DERIVA de `Cargo.jefeInmediatoId` + `quienEjerce` — la misma fundación de dominio que
+ya rutea Ventanilla Única — nunca se elige a mano; si el cargo no tiene jefe inmediato definido, lo
+dice honestamente en vez de forzar un evaluador falso.
+
+**SG-SST:** matriz de riesgos por cargo, accidentalidad/incidentes, exámenes médicos
+ocupacionales. Simplificación legal declarada: registro interno, NO genera FURAT/FUREL oficial ni
+notifica a la ARL.
+
+**Capacitación (PIC), Bienestar Social, Relaciones Laborales:** cursos/inscripciones/asistencia;
+actividades/participantes; permisos sindicales — los tres módulos más simples, sin peculiaridades.
+
+**Gestión Disciplinaria:** historial de actuaciones insert-only (mismo patrón que
+`CoactivoActuacion`), con transición de estado (indagación→investigación→descargos→fallo→archivado).
+**Asignada a JURÍDICA, no a Talento Humano** — el propio comparativo del usuario señala que la
+gestión disciplinaria suele depender de Jurídica. Simplificación legal declarada: trámite
+administrativo interno, no un sistema de notificación judicial con efectos procesales garantizados
+(sin edictos ni términos de ejecutoria).
+
+**Planeación del Talento Humano — cero modelos nuevos:** Plan Anual de Vacantes y dimensionamiento
+de planta por nivel/dependencia, 100% derivado de `Cargo`+`VinculacionCargo` ya existentes — mismo
+patrón barato que Historia Laboral.
+
+**Cargos actualizados** (ALCALDIA y PERSONERIA, aplicando de inmediato
+[[feedback-cargos-diferenciados-por-submodulo]]): Profesional de Talento Humano gana
+evaluación/SST/capacitación/bienestar/relaciones laborales (oficina pequeña, un solo profesional
+coordina los procesos misionales — la nómina queda separada en su propio cargo); Jefe de TH gana
+consulta transversal a los 5; Jefe de Oficina Jurídica (Personero Delegado en Personería) gana
+gestión disciplinaria. **Hallazgo en el camino:** faltaba también la Capa 2 de gobernanza —
+asignar los módulos nuevos a `Dependencia.modulos` (TH y JUR), no solo Capa 1 (tenant) y Capa 3
+(grants del cargo); sin la capa 2, Carlos (no-admin) veía "no tienes la capacidad" pese a tener el
+grant correcto en su cargo. Corregido con el mismo script-pattern ya establecido.
+
+**Integraciones externas (SIGEP II, SIMO, DIAN, UGPP) — declaradas explícitamente NO construibles:**
+ninguna tiene API pública accesible sin convenio institucional — mismo caso ya documentado con
+SECOP II ([[secop-integracion-solo-lectura]]). No se fingió ninguna integración.
+
+**✅ VERIFICADO EN VIVO en `demo.ossgovernmentone.lat` con DOS funcionarios no-admin reales:**
+- **Carlos Ramirez** (Profesional de Talento Humano): estableció acuerdo de gestión 2026 para
+  Héctor Fabio Cruz (evaluador correctamente derivado como "sin jefe inmediato definido" — el
+  cargo de Héctor no tiene jefeInmediatoId, comportamiento honesto, no forzado) → calificó 82 →
+  **DESTACADO** (cálculo exacto). Registró 1 riesgo en la matriz SST, 1 incidente, 1 examen médico.
+  Registró 1 capacitación con inscripción y asistencia. Registró 1 actividad de bienestar con
+  participante. Registró 1 permiso sindical.
+- Confirmé el LÍMITE correcto: Carlos, sin la capacidad `gestion_disciplinaria`, fue rechazado en
+  `/admin/disciplinario` ("No tienes la capacidad").
+- Encargué a **Andrés Rojas** (ya Profesional Jurídico titular) como Jefe de Oficina Jurídica vía
+  RRHH (acto real, no atajo) → fijé su contraseña de prueba
+  ([[feedback-passwords-test-fase-construccion]]) → **abrió `DISC-2026-000001`** sobre Diego López,
+  lo archivó tras verificar que no hubo demora injustificada → historial de 2 actuaciones correcto.
+- **Planeación del TH** (de vuelta como Carlos): 24 cargos totales, 6 con ocupante, 18 vacantes,
+  **75% de vacancia** (aritmética exacta) — dimensionamiento por nivel y por dependencia coherente
+  con la estructura real del tenant demo.
+
+**🏁 TALENTO HUMANO COMPLETO — los 9 huecos de la auditoría cerrados** (Historia Laboral +
+Certificación, Evaluación del Desempeño, SG-SST, Capacitación, Bienestar Social, Relaciones
+Laborales, Gestión Disciplinaria, Planeación del TH, e integraciones externas explícitamente
+declaradas fuera de alcance). Junto con Hacienda Pública (Contabilidad+Presupuesto+Tesorería+
+Rentas+Cobro Coactivo), quedan **6 huecos menores de Hacienda** como único frente abierto de la
+auditoría de módulos — decisión del usuario cuándo seguir.
