@@ -37,6 +37,12 @@ export const MODULOS: Modulo[] = [
   { id: "nomina", nombre: "Nómina", categoria: "Talento Humano", dependeDe: ["gestion_humana", "contabilidad"], ruta: "/admin/nomina", descripcion: "Conceptos, liquidación, PILA y posteo a Contabilidad." },
   { id: "rentas", nombre: "Rentas", categoria: "Financiero", dependeDe: ["contabilidad"], ruta: "/admin/rentas", descripcion: "Impuesto predial e ICA: liquidación, recaudo y cartera." },
   { id: "cobro_coactivo", nombre: "Cobro Coactivo", categoria: "Financiero", dependeDe: ["rentas"], ruta: "/admin/coactivo", descripcion: "Cartera vencida: mandamiento de pago, embargo y acuerdos de pago." },
+  { id: "evaluacion_desempeno", nombre: "Evaluación del Desempeño", categoria: "Talento Humano", dependeDe: ["gestion_humana"], ruta: "/admin/evaluacion", descripcion: "Acuerdos de gestión y calificación anual (EDL)." },
+  { id: "sst", nombre: "Seguridad y Salud en el Trabajo", categoria: "Talento Humano", dependeDe: ["gestion_humana"], ruta: "/admin/sst", descripcion: "Matriz de riesgos por cargo, exámenes médicos ocupacionales y accidentalidad." },
+  { id: "capacitacion", nombre: "Capacitación", categoria: "Talento Humano", dependeDe: ["gestion_humana"], ruta: "/admin/capacitacion", descripcion: "Plan Institucional de Capacitación: cursos, inscripciones y asistencia." },
+  { id: "bienestar", nombre: "Bienestar Social", categoria: "Talento Humano", dependeDe: ["gestion_humana"], ruta: "/admin/bienestar", descripcion: "Actividades de bienestar, incentivos y participación." },
+  { id: "relaciones_laborales", nombre: "Relaciones Laborales", categoria: "Talento Humano", dependeDe: ["gestion_humana"], ruta: "/admin/relaciones-laborales", descripcion: "Permisos sindicales." },
+  { id: "gestion_disciplinaria", nombre: "Gestión Disciplinaria", categoria: "Talento Humano", dependeDe: ["gestion_humana"], ruta: "/admin/disciplinario", descripcion: "Procesos disciplinarios internos (Ley 1952/2019)." },
 ]
 
 const POR_ID = new Map(MODULOS.map((m) => [m.id, m]))

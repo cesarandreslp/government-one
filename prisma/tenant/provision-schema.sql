@@ -97,6 +97,33 @@ CREATE TYPE "RentaDestinoEconomico" AS ENUM ('RESIDENCIAL', 'COMERCIAL', 'INDUST
 CREATE TYPE "RentaEstadoLiquidacion" AS ENUM ('PENDIENTE', 'EN_COBRO_COACTIVO', 'PAGADA', 'ANULADA');
 
 -- CreateEnum
+CREATE TYPE "EvaluacionEstado" AS ENUM ('ACUERDO_ESTABLECIDO', 'CALIFICADA');
+
+-- CreateEnum
+CREATE TYPE "EvaluacionNivel" AS ENUM ('SOBRESALIENTE', 'DESTACADO', 'SATISFACTORIO', 'NO_SATISFACTORIO');
+
+-- CreateEnum
+CREATE TYPE "SstNivelRiesgo" AS ENUM ('ACEPTABLE', 'MEJORABLE', 'NO_ACEPTABLE');
+
+-- CreateEnum
+CREATE TYPE "SstTipoIncidente" AS ENUM ('ACCIDENTE', 'INCIDENTE', 'ENFERMEDAD_LABORAL');
+
+-- CreateEnum
+CREATE TYPE "SstTipoExamen" AS ENUM ('INGRESO', 'PERIODICO', 'RETIRO');
+
+-- CreateEnum
+CREATE TYPE "SstResultadoExamen" AS ENUM ('APTO', 'APTO_CON_RESTRICCIONES', 'NO_APTO');
+
+-- CreateEnum
+CREATE TYPE "CapacitacionTipo" AS ENUM ('CURSO', 'DIPLOMADO', 'INDUCCION', 'REINDUCCION');
+
+-- CreateEnum
+CREATE TYPE "BienestarTipo" AS ENUM ('DEPORTIVA', 'CULTURAL', 'INTEGRACION', 'RECONOCIMIENTO');
+
+-- CreateEnum
+CREATE TYPE "DisciplinarioEstado" AS ENUM ('INDAGACION_PRELIMINAR', 'INVESTIGACION', 'DESCARGOS', 'FALLO', 'ARCHIVADO');
+
+-- CreateEnum
 CREATE TYPE "CoactivoEstado" AS ENUM ('PERSUASIVO', 'MANDAMIENTO_PAGO', 'EMBARGO', 'ACUERDO_PAGO', 'TERMINADO');
 
 -- CreateEnum
@@ -935,6 +962,174 @@ CREATE TABLE "renta_pagos" (
 );
 
 -- CreateTable
+CREATE TABLE "th_evaluaciones" (
+    "id" TEXT NOT NULL,
+    "usuarioId" TEXT NOT NULL,
+    "evaluadorId" TEXT,
+    "periodo" TEXT NOT NULL,
+    "fechaInicio" TIMESTAMP(3) NOT NULL,
+    "fechaFin" TIMESTAMP(3) NOT NULL,
+    "compromisos" TEXT NOT NULL,
+    "estado" "EvaluacionEstado" NOT NULL DEFAULT 'ACUERDO_ESTABLECIDO',
+    "calificacion" DECIMAL(5,2),
+    "nivel" "EvaluacionNivel",
+    "observaciones" TEXT,
+    "fechaCalificacion" TIMESTAMP(3),
+    "creadoPor" TEXT,
+    "calificadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "th_evaluaciones_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "sst_riesgos_cargo" (
+    "id" TEXT NOT NULL,
+    "cargoId" TEXT NOT NULL,
+    "peligro" TEXT NOT NULL,
+    "riesgo" TEXT NOT NULL,
+    "nivelRiesgo" "SstNivelRiesgo" NOT NULL,
+    "medidasControl" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "sst_riesgos_cargo_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "sst_incidentes" (
+    "id" TEXT NOT NULL,
+    "usuarioId" TEXT NOT NULL,
+    "tipo" "SstTipoIncidente" NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "descripcion" TEXT NOT NULL,
+    "diasIncapacidad" INTEGER,
+    "reportadoArl" BOOLEAN NOT NULL DEFAULT false,
+    "creadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "sst_incidentes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "sst_examenes_medicos" (
+    "id" TEXT NOT NULL,
+    "usuarioId" TEXT NOT NULL,
+    "tipo" "SstTipoExamen" NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "resultado" "SstResultadoExamen" NOT NULL,
+    "observaciones" TEXT,
+    "creadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "sst_examenes_medicos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "th_capacitaciones" (
+    "id" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "tipo" "CapacitacionTipo" NOT NULL,
+    "fechaInicio" TIMESTAMP(3) NOT NULL,
+    "fechaFin" TIMESTAMP(3) NOT NULL,
+    "horas" INTEGER,
+    "entidadCapacitadora" TEXT,
+    "creadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "th_capacitaciones_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "th_capacitacion_inscripciones" (
+    "id" TEXT NOT NULL,
+    "capacitacionId" TEXT NOT NULL,
+    "usuarioId" TEXT NOT NULL,
+    "asistio" BOOLEAN NOT NULL DEFAULT false,
+    "certificadoUrl" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "th_capacitacion_inscripciones_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "th_actividades_bienestar" (
+    "id" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "tipo" "BienestarTipo" NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "descripcion" TEXT,
+    "creadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "th_actividades_bienestar_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "th_bienestar_participantes" (
+    "id" TEXT NOT NULL,
+    "actividadId" TEXT NOT NULL,
+    "usuarioId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "th_bienestar_participantes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "th_permisos_sindicales" (
+    "id" TEXT NOT NULL,
+    "usuarioId" TEXT NOT NULL,
+    "fechaInicio" TIMESTAMP(3) NOT NULL,
+    "fechaFin" TIMESTAMP(3) NOT NULL,
+    "motivo" TEXT NOT NULL,
+    "creadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "th_permisos_sindicales_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "th_disciplinario_consecutivos" (
+    "id" TEXT NOT NULL,
+    "anio" INTEGER NOT NULL,
+    "ultimo" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "th_disciplinario_consecutivos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "th_procesos_disciplinarios" (
+    "id" TEXT NOT NULL,
+    "numero" TEXT NOT NULL,
+    "usuarioId" TEXT NOT NULL,
+    "motivo" TEXT NOT NULL,
+    "fechaApertura" TIMESTAMP(3) NOT NULL,
+    "estado" "DisciplinarioEstado" NOT NULL DEFAULT 'INDAGACION_PRELIMINAR',
+    "decision" TEXT,
+    "fechaFallo" TIMESTAMP(3),
+    "creadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "th_procesos_disciplinarios_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "th_disciplinario_actuaciones" (
+    "id" TEXT NOT NULL,
+    "procesoId" TEXT NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "descripcion" TEXT NOT NULL,
+    "registradoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "th_disciplinario_actuaciones_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "coa_consecutivos" (
     "id" TEXT NOT NULL,
     "vigencia" INTEGER NOT NULL,
@@ -1320,6 +1515,48 @@ CREATE UNIQUE INDEX "renta_pagos_liquidacionId_key" ON "renta_pagos"("liquidacio
 CREATE UNIQUE INDEX "renta_pagos_comprobanteId_key" ON "renta_pagos"("comprobanteId");
 
 -- CreateIndex
+CREATE INDEX "th_evaluaciones_usuarioId_idx" ON "th_evaluaciones"("usuarioId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "th_evaluaciones_usuarioId_periodo_key" ON "th_evaluaciones"("usuarioId", "periodo");
+
+-- CreateIndex
+CREATE INDEX "sst_riesgos_cargo_cargoId_idx" ON "sst_riesgos_cargo"("cargoId");
+
+-- CreateIndex
+CREATE INDEX "sst_incidentes_usuarioId_idx" ON "sst_incidentes"("usuarioId");
+
+-- CreateIndex
+CREATE INDEX "sst_examenes_medicos_usuarioId_idx" ON "sst_examenes_medicos"("usuarioId");
+
+-- CreateIndex
+CREATE INDEX "th_capacitacion_inscripciones_usuarioId_idx" ON "th_capacitacion_inscripciones"("usuarioId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "th_capacitacion_inscripciones_capacitacionId_usuarioId_key" ON "th_capacitacion_inscripciones"("capacitacionId", "usuarioId");
+
+-- CreateIndex
+CREATE INDEX "th_bienestar_participantes_usuarioId_idx" ON "th_bienestar_participantes"("usuarioId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "th_bienestar_participantes_actividadId_usuarioId_key" ON "th_bienestar_participantes"("actividadId", "usuarioId");
+
+-- CreateIndex
+CREATE INDEX "th_permisos_sindicales_usuarioId_idx" ON "th_permisos_sindicales"("usuarioId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "th_disciplinario_consecutivos_anio_key" ON "th_disciplinario_consecutivos"("anio");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "th_procesos_disciplinarios_numero_key" ON "th_procesos_disciplinarios"("numero");
+
+-- CreateIndex
+CREATE INDEX "th_procesos_disciplinarios_usuarioId_idx" ON "th_procesos_disciplinarios"("usuarioId");
+
+-- CreateIndex
+CREATE INDEX "th_disciplinario_actuaciones_procesoId_idx" ON "th_disciplinario_actuaciones"("procesoId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "coa_consecutivos_vigencia_key" ON "coa_consecutivos"("vigencia");
 
 -- CreateIndex
@@ -1531,6 +1768,42 @@ ALTER TABLE "renta_pagos" ADD CONSTRAINT "renta_pagos_liquidacionId_fkey" FOREIG
 
 -- AddForeignKey
 ALTER TABLE "renta_pagos" ADD CONSTRAINT "renta_pagos_comprobanteId_fkey" FOREIGN KEY ("comprobanteId") REFERENCES "cp_comprobantes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "th_evaluaciones" ADD CONSTRAINT "th_evaluaciones_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "th_evaluaciones" ADD CONSTRAINT "th_evaluaciones_evaluadorId_fkey" FOREIGN KEY ("evaluadorId") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "sst_riesgos_cargo" ADD CONSTRAINT "sst_riesgos_cargo_cargoId_fkey" FOREIGN KEY ("cargoId") REFERENCES "cargos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "sst_incidentes" ADD CONSTRAINT "sst_incidentes_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "sst_examenes_medicos" ADD CONSTRAINT "sst_examenes_medicos_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "th_capacitacion_inscripciones" ADD CONSTRAINT "th_capacitacion_inscripciones_capacitacionId_fkey" FOREIGN KEY ("capacitacionId") REFERENCES "th_capacitaciones"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "th_capacitacion_inscripciones" ADD CONSTRAINT "th_capacitacion_inscripciones_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "th_bienestar_participantes" ADD CONSTRAINT "th_bienestar_participantes_actividadId_fkey" FOREIGN KEY ("actividadId") REFERENCES "th_actividades_bienestar"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "th_bienestar_participantes" ADD CONSTRAINT "th_bienestar_participantes_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "th_permisos_sindicales" ADD CONSTRAINT "th_permisos_sindicales_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "th_procesos_disciplinarios" ADD CONSTRAINT "th_procesos_disciplinarios_usuarioId_fkey" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "th_disciplinario_actuaciones" ADD CONSTRAINT "th_disciplinario_actuaciones_procesoId_fkey" FOREIGN KEY ("procesoId") REFERENCES "th_procesos_disciplinarios"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "coa_procesos" ADD CONSTRAINT "coa_procesos_contribuyenteId_fkey" FOREIGN KEY ("contribuyenteId") REFERENCES "cp_terceros"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

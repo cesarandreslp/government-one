@@ -132,6 +132,7 @@ model Cargo {
 
   vinculaciones VinculacionCargo[]
   pqrsds        Pqrsd[]
+  sstRiesgos    SstRiesgoCargo[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -172,6 +173,14 @@ model Usuario {
   contratosEstructurados Contrato[]   @relation("ContratoEstructurador")
   contratosRevisados     Contrato[]   @relation("ContratoAbogado")
   liquidacionesNomina    LiquidacionNomina[]
+  evaluacionesRecibidas  EvaluacionDesempeno[] @relation("EvaluacionEvaluado")
+  evaluacionesRealizadas EvaluacionDesempeno[] @relation("EvaluacionEvaluador")
+  sstIncidentes             SstIncidente[]
+  sstExamenes               SstExamenMedico[]
+  capacitacionInscripciones CapacitacionInscripcion[]
+  bienestarParticipaciones  BienestarParticipante[]
+  permisosSindicales        PermisoSindical[]
+  procesosDisciplinarios    ProcesoDisciplinario[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1493,6 +1502,284 @@ model RentaPago {
   createdAt DateTime @default(now())
 
   @@map("renta_pagos")
+}
+
+// ───────────────────── Módulo: EVALUACIÓN DEL DESEMPEÑO (EDL) ─────────────────────
+// Acuerdo de gestión (compromisos al inicio del periodo) + calificación final (0-100, nivel
+// derivado) — el proceso real de carrera administrativa (Decreto 1083/2015). El evaluador de
+// referencia es el jefe inmediato del cargo (`Cargo.jefeInmediatoId`, ya existente en la
+// fundación de dominio) pero RRHH coordina el proceso y captura el resultado oficial — mismo
+// criterio que ya aplica a actos administrativos y ausencias.
+
+enum EvaluacionEstado {
+  ACUERDO_ESTABLECIDO
+  CALIFICADA
+}
+
+enum EvaluacionNivel {
+  SOBRESALIENTE
+  DESTACADO
+  SATISFACTORIO
+  NO_SATISFACTORIO
+}
+
+model EvaluacionDesempeno {
+  id            String           @id @default(cuid())
+  usuarioId     String
+  usuario       Usuario          @relation("EvaluacionEvaluado", fields: [usuarioId], references: [id])
+  evaluadorId   String?
+  evaluador     Usuario?         @relation("EvaluacionEvaluador", fields: [evaluadorId], references: [id])
+  periodo       String // "2026" o "2026-1"
+  fechaInicio   DateTime
+  fechaFin      DateTime
+  compromisos   String
+  estado        EvaluacionEstado @default(ACUERDO_ESTABLECIDO)
+  calificacion  Decimal?         @db.Decimal(5, 2)
+  nivel         EvaluacionNivel?
+  observaciones String?
+  fechaCalificacion DateTime?
+  creadoPor     String?
+  calificadoPor String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([usuarioId, periodo])
+  @@index([usuarioId])
+  @@map("th_evaluaciones")
+}
+
+// ───────────────────── Módulo: SEGURIDAD Y SALUD EN EL TRABAJO (SG-SST) ─────────────────────
+// Corte curado (Decreto 1072/2015): matriz de riesgos por cargo, accidentalidad/incidentes,
+// exámenes médicos ocupacionales. Simplificación legal declarada honestamente: NO notifica a la
+// ARL ni genera el FURAT/FUREL oficial — es un registro interno, no un trámite ante la
+// aseguradora.
+
+enum SstNivelRiesgo {
+  ACEPTABLE
+  MEJORABLE
+  NO_ACEPTABLE
+}
+
+enum SstTipoIncidente {
+  ACCIDENTE
+  INCIDENTE
+  ENFERMEDAD_LABORAL
+}
+
+enum SstTipoExamen {
+  INGRESO
+  PERIODICO
+  RETIRO
+}
+
+enum SstResultadoExamen {
+  APTO
+  APTO_CON_RESTRICCIONES
+  NO_APTO
+}
+
+model SstRiesgoCargo {
+  id             String         @id @default(cuid())
+  cargoId        String
+  cargo          Cargo          @relation(fields: [cargoId], references: [id], onDelete: Cascade)
+  peligro        String
+  riesgo         String
+  nivelRiesgo    SstNivelRiesgo
+  medidasControl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cargoId])
+  @@map("sst_riesgos_cargo")
+}
+
+model SstIncidente {
+  id              String           @id @default(cuid())
+  usuarioId       String
+  usuario         Usuario          @relation(fields: [usuarioId], references: [id])
+  tipo            SstTipoIncidente
+  fecha           DateTime
+  descripcion     String
+  diasIncapacidad Int?
+  reportadoArl    Boolean          @default(false)
+  creadoPor       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([usuarioId])
+  @@map("sst_incidentes")
+}
+
+model SstExamenMedico {
+  id            String             @id @default(cuid())
+  usuarioId     String
+  usuario       Usuario            @relation(fields: [usuarioId], references: [id])
+  tipo          SstTipoExamen
+  fecha         DateTime
+  resultado     SstResultadoExamen
+  observaciones String?
+  creadoPor     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([usuarioId])
+  @@map("sst_examenes_medicos")
+}
+
+// ───────────────────── Módulo: CAPACITACIÓN (PIC) ─────────────────────
+enum CapacitacionTipo {
+  CURSO
+  DIPLOMADO
+  INDUCCION
+  REINDUCCION
+}
+
+model Capacitacion {
+  id                  String            @id @default(cuid())
+  nombre              String
+  tipo                CapacitacionTipo
+  fechaInicio         DateTime
+  fechaFin            DateTime
+  horas               Int?
+  entidadCapacitadora String?
+  creadoPor           String?
+
+  inscripciones CapacitacionInscripcion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("th_capacitaciones")
+}
+
+model CapacitacionInscripcion {
+  id             String       @id @default(cuid())
+  capacitacionId String
+  capacitacion   Capacitacion @relation(fields: [capacitacionId], references: [id], onDelete: Cascade)
+  usuarioId      String
+  usuario        Usuario      @relation(fields: [usuarioId], references: [id])
+  asistio        Boolean      @default(false)
+  certificadoUrl String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([capacitacionId, usuarioId])
+  @@index([usuarioId])
+  @@map("th_capacitacion_inscripciones")
+}
+
+// ───────────────────── Módulo: BIENESTAR SOCIAL ─────────────────────
+enum BienestarTipo {
+  DEPORTIVA
+  CULTURAL
+  INTEGRACION
+  RECONOCIMIENTO
+}
+
+model ActividadBienestar {
+  id          String        @id @default(cuid())
+  nombre      String
+  tipo        BienestarTipo
+  fecha       DateTime
+  descripcion String?
+  creadoPor   String?
+
+  participantes BienestarParticipante[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("th_actividades_bienestar")
+}
+
+model BienestarParticipante {
+  id          String             @id @default(cuid())
+  actividadId String
+  actividad   ActividadBienestar @relation(fields: [actividadId], references: [id], onDelete: Cascade)
+  usuarioId   String
+  usuario     Usuario            @relation(fields: [usuarioId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([actividadId, usuarioId])
+  @@index([usuarioId])
+  @@map("th_bienestar_participantes")
+}
+
+// ───────────────────── Módulo: RELACIONES LABORALES ─────────────────────
+model PermisoSindical {
+  id          String   @id @default(cuid())
+  usuarioId   String
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id])
+  fechaInicio DateTime
+  fechaFin    DateTime
+  motivo      String
+  creadoPor   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([usuarioId])
+  @@map("th_permisos_sindicales")
+}
+
+// ───────────────────── Módulo: GESTIÓN DISCIPLINARIA ─────────────────────
+// Historial de actuaciones insert-only (mismo patrón que CoactivoActuacion/ProyectoHitoReporte).
+// Simplificación legal declarada honestamente: es un registro administrativo del trámite interno
+// (Ley 1952/2019, Código General Disciplinario), no un sistema de notificación judicial con
+// efectos procesales garantizados (términos de ejecutoria, edictos).
+
+enum DisciplinarioEstado {
+  INDAGACION_PRELIMINAR
+  INVESTIGACION
+  DESCARGOS
+  FALLO
+  ARCHIVADO
+}
+
+/// Contador atómico del consecutivo de procesos disciplinarios, por año.
+model DisciplinarioConsecutivo {
+  id     String @id @default(cuid())
+  anio   Int    @unique
+  ultimo Int    @default(0)
+
+  @@map("th_disciplinario_consecutivos")
+}
+
+model ProcesoDisciplinario {
+  id            String              @id @default(cuid())
+  numero        String              @unique // "DISC-2026-000001"
+  usuarioId     String
+  usuario       Usuario             @relation(fields: [usuarioId], references: [id])
+  motivo        String
+  fechaApertura DateTime
+  estado        DisciplinarioEstado @default(INDAGACION_PRELIMINAR)
+  decision      String?
+  fechaFallo    DateTime?
+  creadoPor     String?
+
+  actuaciones DisciplinarioActuacion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([usuarioId])
+  @@map("th_procesos_disciplinarios")
+}
+
+model DisciplinarioActuacion {
+  id            String               @id @default(cuid())
+  procesoId     String
+  proceso       ProcesoDisciplinario @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+  fecha         DateTime
+  descripcion   String
+  registradoPor String?
+
+  createdAt DateTime @default(now())
+
+  @@index([procesoId])
+  @@map("th_disciplinario_actuaciones")
 }
 
 // ───────────────────── Módulo: COBRO COACTIVO (Ley 1066/2006, Art. 823+ ET) ─────────────────────

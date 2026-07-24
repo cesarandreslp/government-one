@@ -66,11 +66,16 @@ export default async function RrhhPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <header className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-800">Talento Humano</h1>
-        <p className="text-sm text-slate-500">
-          Funcionarios, actos administrativos (posesión, encargo, provisional) y ausencias. {usuarios.length} funcionario(s).
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-800">Talento Humano</h1>
+          <p className="text-sm text-slate-500">
+            Funcionarios, actos administrativos (posesión, encargo, provisional) y ausencias. {usuarios.length} funcionario(s).
+          </p>
+        </div>
+        <Link href="/admin/rrhh/planeacion" className="whitespace-nowrap text-sm font-medium text-blue-600 hover:underline">
+          Planeación de planta →
+        </Link>
       </header>
 
       <RrhhAcciones

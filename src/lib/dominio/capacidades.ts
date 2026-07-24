@@ -18,6 +18,12 @@ export const CAPACIDADES_POR_MODULO = {
   tesoreria: ["consultar", "administrar", "conciliar"],
   rentas: ["consultar", "administrar", "liquidar", "recaudar"],
   cobro_coactivo: ["consultar", "gestionar", "recaudar"],
+  evaluacion_desempeno: ["consultar", "evaluar"],
+  sst: ["consultar", "administrar"],
+  capacitacion: ["consultar", "administrar"],
+  bienestar: ["consultar", "administrar"],
+  relaciones_laborales: ["consultar", "administrar"],
+  gestion_disciplinaria: ["consultar", "gestionar"],
 } as const
 
 export type ModuloId = keyof typeof CAPACIDADES_POR_MODULO

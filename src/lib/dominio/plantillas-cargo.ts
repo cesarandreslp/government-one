@@ -50,8 +50,9 @@ const ALCALDIA: PlantillaEntidad = {
     {
       codigo: "JUR", nombre: "Oficina Jurídica", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
-        { nombre: "Jefe de Oficina Jurídica", esJefatura: true, empleoCodigo: "115-01", grants: { contratacion: ["concepto_juridico", "revisar_juridica"] },
-          funciones: "Dirigir la oficina jurídica; conceptuar y revisar jurídicamente los procesos contractuales y actos administrativos de la entidad." },
+        { nombre: "Jefe de Oficina Jurídica", esJefatura: true, empleoCodigo: "115-01",
+          grants: { contratacion: ["concepto_juridico", "revisar_juridica"], gestion_disciplinaria: ["consultar", "gestionar"] },
+          funciones: "Dirigir la oficina jurídica; conceptuar y revisar jurídicamente los procesos contractuales y actos administrativos de la entidad; tramitar los procesos disciplinarios internos (según el comparativo, la gestión disciplinaria suele depender de Jurídica y no de Talento Humano)." },
         { nombre: "Profesional Jurídico", empleoCodigo: "222-02", grants: { contratacion: ["revisar_juridica"] },
           funciones: "Revisión jurídica de contratos y actos administrativos." },
       ],
@@ -83,10 +84,21 @@ const ALCALDIA: PlantillaEntidad = {
       codigo: "TH", nombre: "Oficina de Talento Humano", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
         { nombre: "Jefe de Talento Humano", esJefatura: true, empleoCodigo: "068-01",
-          grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"], nomina: ["consultar"] },
-          funciones: "Dirigir la gestión del talento humano: vinculación, actos administrativos y bienestar; supervisar la liquidación de nómina." },
-        { nombre: "Profesional de Talento Humano", empleoCodigo: "219-02", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] },
-          funciones: "Gestionar la vinculación de funcionarios y los actos administrativos de personal (posesión, encargo, provisional, vacaciones)." },
+          grants: {
+            gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"],
+            nomina: ["consultar"],
+            evaluacion_desempeno: ["consultar"], sst: ["consultar"], capacitacion: ["consultar"],
+            bienestar: ["consultar"], relaciones_laborales: ["consultar"],
+          },
+          funciones: "Dirigir la gestión del talento humano: vinculación, actos administrativos y bienestar; supervisar la liquidación de nómina y los demás procesos de la oficina." },
+        { nombre: "Profesional de Talento Humano", empleoCodigo: "219-02",
+          grants: {
+            gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"],
+            evaluacion_desempeno: ["consultar", "evaluar"], sst: ["consultar", "administrar"],
+            capacitacion: ["consultar", "administrar"], bienestar: ["consultar", "administrar"],
+            relaciones_laborales: ["consultar", "administrar"],
+          },
+          funciones: "Gestionar la vinculación de funcionarios, actos administrativos, evaluación del desempeño, SST, capacitación, bienestar y relaciones laborales — oficina pequeña, un solo profesional coordina los procesos misionales de talento humano (la nómina queda separada, ver cargo siguiente)." },
         { nombre: "Profesional de Nómina", empleoCodigo: "222-01", grants: { nomina: ["consultar", "liquidar", "pagar"] },
           funciones: "Liquidar la nómina mensual, generar la PILA y pagar los pasivos a EPS/AFP/ARL/caja — separado de quien gestiona la vinculación." },
       ],
@@ -170,8 +182,14 @@ const PERSONERIA: PlantillaEntidad = {
     {
       codigo: "TH", nombre: "Talento Humano", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "DESP",
       cargos: [
-        { nombre: "Profesional de Talento Humano", empleoCodigo: "219-02", grants: { gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"] },
-          funciones: "Gestionar la vinculación de funcionarios y los actos administrativos de personal." },
+        { nombre: "Profesional de Talento Humano", empleoCodigo: "219-02",
+          grants: {
+            gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"],
+            evaluacion_desempeno: ["consultar", "evaluar"], sst: ["consultar", "administrar"],
+            capacitacion: ["consultar", "administrar"], bienestar: ["consultar", "administrar"],
+            relaciones_laborales: ["consultar", "administrar"],
+          },
+          funciones: "Gestionar la vinculación de funcionarios, actos administrativos, evaluación del desempeño, SST, capacitación, bienestar y relaciones laborales." },
         { nombre: "Profesional de Nómina", empleoCodigo: "222-01", grants: { nomina: ["consultar", "liquidar", "pagar"] },
           funciones: "Liquidar la nómina mensual, generar la PILA y pagar los pasivos a EPS/AFP/ARL/caja — separado de quien gestiona la vinculación." },
       ],
@@ -179,8 +197,9 @@ const PERSONERIA: PlantillaEntidad = {
     {
       codigo: "DELEG", nombre: "Personería Delegada", tipo: "OFICINA", padreCodigo: "DESP",
       cargos: [
-        { nombre: "Personero Delegado", esJefatura: true, empleoCodigo: "222-02", grants: { ventanilla_unica: ["responder"] },
-          funciones: "Ejercer las funciones delegadas por el Personero Municipal en materia de derechos humanos y ministerio público." },
+        { nombre: "Personero Delegado", esJefatura: true, empleoCodigo: "222-02",
+          grants: { ventanilla_unica: ["responder"], gestion_disciplinaria: ["consultar", "gestionar"] },
+          funciones: "Ejercer las funciones delegadas por el Personero Municipal en materia de derechos humanos y ministerio público, incluida la gestión disciplinaria interna de la entidad." },
         { nombre: "Profesional Universitario", empleoCodigo: "219-01", grants: { ventanilla_unica: ["responder"], gestion_documental: ["consultar"] },
           funciones: "Apoyar las funciones misionales de la Personería Delegada." },
       ],
