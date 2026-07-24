@@ -962,3 +962,32 @@ integración externa real (SIGEP II, SIMO, DIAN, UGPP — solo se genera el arch
    (EDL), se apoya directo en `VinculacionCargo` ya existente.
 3. **SG-SST** — obligatorio (Decreto 1072/2015) pero el más grande de construir (matriz de
    riesgos, COPASST, exámenes médicos, accidentalidad).
+
+El usuario eligió la opción 1 (`AskUserQuestion`).
+
+## Progreso — Certificación Laboral (2026-07-24, commit `762f40c`)
+
+Cierra el hueco más barato de la auditoría de TH: **cero modelos nuevos** — la "historia laboral"
+ya vivía completa en `Usuario`+`VinculacionCargo` (RRHH la captura desde el Paso 2); solo faltaba
+la vista de reporte. `/admin/rrhh/certificado?usuarioId=X` (mismo patrón que el certificado de
+retenciones de Nómina): deriva el **cargo actual** con la misma jerarquía de `quienEjerce`
+(titular > encargado > provisional), el **estado** ACTIVO/RETIRADO (¿hay vinculación vigente
+hoy?), y el **tiempo de servicio** continuo desde la primera vinculación registrada — declarado
+honestamente que no descuenta interrupciones que no estén registradas como acto administrativo.
+Enlace "Certificado" agregado a cada fila de la tabla de funcionarios en `/admin/rrhh`.
+
+**Contraseñas de prueba:** primera vez que se aplica [[feedback-passwords-test-fase-construccion]]
+(acuerdo explícito del usuario) — fijé yo mismo una contraseña de prueba para Carlos Ramirez
+(funcionario de RRHH ya existente en el tenant demo) por script, sin pedirle al usuario que la
+tipeara.
+
+**✅ VERIFICADO EN VIVO en `demo.ossgovernmentone.lat` como funcionario NO-admin real** (Carlos
+Ramirez, Profesional de Talento Humano — primera vez que se loguea un funcionario de este cargo,
+no solo el admin): el certificado de Héctor Fabio Cruz renderizó con datos 100% reales — CC
+10245678, "Técnico Operativo — Ordenamiento Físico y Territorial" (Secretaría de Planeación),
+Titular según "Decreto 112 de 2026", $2.200.000, estado ACTIVO. Los 6 funcionarios con actos
+registrados muestran el enlace "Certificado" en la tabla.
+
+**Módulo RRHH: 1 de 9 huecos de la auditoría de Talento Humano cerrado.** Quedan 8 (Planeación
+del TH, SST, Bienestar Social, Capacitación, Evaluación del Desempeño, Relaciones Laborales,
+Gestión Disciplinaria, integraciones externas) — decisión del usuario cuándo seguir.
