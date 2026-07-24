@@ -16,6 +16,7 @@ export const CAPACIDADES_POR_MODULO = {
   gestion_humana: ["gestionar_funcionarios", "actos_administrativos", "consultar"],
   nomina: ["consultar", "liquidar", "pagar"],
   tesoreria: ["consultar", "administrar", "conciliar"],
+  rentas: ["consultar", "administrar", "liquidar", "recaudar"],
 } as const
 
 export type ModuloId = keyof typeof CAPACIDADES_POR_MODULO

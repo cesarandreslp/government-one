@@ -35,6 +35,7 @@ export const MODULOS: Modulo[] = [
   { id: "banco_proyectos", nombre: "Banco de Proyectos", categoria: "Planeación", dependeDe: ["presupuesto"], ruta: "/admin/proyectos", descripcion: "Ejecución financiera vs. física y brecha." },
   { id: "contratacion", nombre: "Contratación", categoria: "Contractual", ruta: "/admin/contratacion", descripcion: "Ley 80/1150: contratos, versiones y flujo con gating." },
   { id: "nomina", nombre: "Nómina", categoria: "Talento Humano", dependeDe: ["gestion_humana", "contabilidad"], ruta: "/admin/nomina", descripcion: "Conceptos, liquidación, PILA y posteo a Contabilidad." },
+  { id: "rentas", nombre: "Rentas", categoria: "Financiero", dependeDe: ["contabilidad"], ruta: "/admin/rentas", descripcion: "Impuesto predial e ICA: liquidación, recaudo y cartera." },
 ]
 
 const POR_ID = new Map(MODULOS.map((m) => [m.id, m]))

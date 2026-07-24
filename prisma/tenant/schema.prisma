@@ -530,6 +530,8 @@ model Tercero {
   asientos  Asiento[]
   rps       Rp[]
   contratos Contrato[]
+  rentaPredios         RentaPredio[]
+  rentaEstablecimientos RentaEstablecimiento[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -568,6 +570,7 @@ model Comprobante {
   pago     Pago?
   liquidacionesNomina LiquidacionNomina[]
   pagosPasivosNomina  NominaPagoPasivo[]
+  pagoRenta           RentaPago?
 
   // Trazabilidad cruzada (presupuesto/nómina/… postean aquí).
   fuenteModulo    String?
@@ -642,6 +645,7 @@ model RubroPresupuestal {
 
   apropiaciones Apropiacion[]
   cdps          Cdp[]
+  liquidacionesRenta RentaLiquidacion[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1308,4 +1312,177 @@ model TesoConciliacionLinea {
 
   @@index([conciliacionId])
   @@map("teso_conciliacion_lineas")
+}
+
+// ───────────────────── Módulo: RENTAS (ingresos tributarios: predial + ICA) ─────────────────────
+// Cierra el hueco identificado en la auditoría de Hacienda Pública: Presupuesto solo modelaba la
+// cadena del GASTO (CDP→RP→Obligación→Pago); el lado del INGRESO no tenía equivalente. El
+// contribuyente REUSA `Tercero` (no se duplica un registro de personas/NIT). Las tarifas (Acuerdo
+// Municipal, cambian cada vigencia y varían por entidad) son DATO del tenant, editable — nunca un
+// catálogo nacional quemado, a diferencia del CGC/CCPET/DAFP que sí lo son. El pago de una
+// liquidación postea un Comprobante INGRESO real (mismas cuentas 410502/410510 que YA existían en
+// el CGC) — aparece automático en Tesorería sin captura duplicada, mismo diseño ya verificado ahí.
+// Simplificación legal declarada honestamente (no placeholder falso): la liquidación predial no
+// aplica el tope de incremento anual (Ley 44/1990 Art. 6) ni descuentos por pronto pago — ambos
+// son ajustes sobre el valor ya liquidado correctamente, quedan para un siguiente incremento.
+
+enum RentaTipoImpuesto {
+  PREDIAL
+  ICA
+}
+
+enum RentaDestinoEconomico {
+  RESIDENCIAL
+  COMERCIAL
+  INDUSTRIAL
+  RURAL
+  LOTE_URBANIZABLE
+  INSTITUCIONAL
+}
+
+enum RentaEstadoLiquidacion {
+  PENDIENTE
+  PAGADA
+  ANULADA
+}
+
+/// Predio (inmueble) sujeto a impuesto predial. El contribuyente es un `Tercero` (no se duplica).
+model RentaPredio {
+  id              String                @id @default(cuid())
+  numeroPredial   String                @unique // matrícula/ficha catastral
+  contribuyenteId String
+  contribuyente   Tercero               @relation(fields: [contribuyenteId], references: [id])
+  direccion       String
+  destino         RentaDestinoEconomico
+  avaluoCatastral Decimal               @db.Decimal(18, 2)
+  estrato         Int?
+  activo          Boolean               @default(true)
+
+  liquidaciones RentaLiquidacion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contribuyenteId])
+  @@map("renta_predios")
+}
+
+/// Catálogo de actividades económicas del tenant (código + tarifa ICA por mil) — dato del tenant,
+/// no nacional: cada municipio fija su propia tarifa por Acuerdo dentro de los rangos de ley.
+model RentaActividadEconomica {
+  id         String  @id @default(cuid())
+  codigo     String  @unique
+  nombre     String
+  tarifaXMil Decimal @db.Decimal(6, 2) // tarifa ICA por mil sobre ingresos brutos declarados
+  activa     Boolean @default(true)
+
+  establecimientos RentaEstablecimiento[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("renta_actividades_economicas")
+}
+
+/// Establecimiento de comercio sujeto a ICA. El contribuyente es un `Tercero` (no se duplica).
+model RentaEstablecimiento {
+  id              String                  @id @default(cuid())
+  contribuyenteId String
+  contribuyente   Tercero                 @relation(fields: [contribuyenteId], references: [id])
+  actividadId     String
+  actividad       RentaActividadEconomica @relation(fields: [actividadId], references: [id])
+  nombreComercial String
+  direccion       String
+  activo          Boolean                 @default(true)
+
+  liquidaciones RentaLiquidacion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contribuyenteId])
+  @@index([actividadId])
+  @@map("renta_establecimientos")
+}
+
+/// Tabla tarifaria del predial (Acuerdo Municipal), por vigencia — rango de avalúo × destino.
+/// Dato del tenant, editable cada vigencia (nunca hardcodeada).
+model RentaTarifaPredial {
+  id          String                @id @default(cuid())
+  vigencia    Int
+  destino     RentaDestinoEconomico
+  avaluoDesde Decimal               @db.Decimal(18, 2)
+  avaluoHasta Decimal? // null = sin tope superior
+  tarifaXMil  Decimal               @db.Decimal(6, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vigencia, destino])
+  @@map("renta_tarifas_prediales")
+}
+
+/// Contador atómico del consecutivo de liquidación, por tipo de impuesto y vigencia.
+model RentaLiquidacionConsecutivo {
+  id       String            @id @default(cuid())
+  tipo     RentaTipoImpuesto
+  vigencia Int
+  ultimo   Int               @default(0)
+
+  @@unique([tipo, vigencia])
+  @@map("renta_liquidacion_consecutivos")
+}
+
+/// Liquidación de un impuesto (predial o ICA) para una vigencia. `rubroIngresoId` es OPCIONAL: si
+/// el tenant tiene un rubro CCPET de ingreso con `Apropiacion` (aforo) para esa vigencia, el pago
+/// se puede comparar recaudado/aforado — el equivalente del lado INGRESO al CDP del lado GASTO.
+model RentaLiquidacion {
+  id                String                 @id @default(cuid())
+  numero            String                 @unique // "PRE-2026-000001" / "ICA-2026-000001"
+  tipo              RentaTipoImpuesto
+  vigencia          Int
+  predioId          String?
+  predio            RentaPredio?           @relation(fields: [predioId], references: [id])
+  establecimientoId String?
+  establecimiento   RentaEstablecimiento?  @relation(fields: [establecimientoId], references: [id])
+  rubroIngresoId    String?
+  rubroIngreso      RubroPresupuestal?     @relation(fields: [rubroIngresoId], references: [id])
+  baseGravable      Decimal                @db.Decimal(18, 2) // avalúo (predial) o ingresos brutos declarados (ICA)
+  tarifaAplicada    Decimal                @db.Decimal(6, 2) // por mil
+  valor             Decimal                @db.Decimal(18, 2)
+  fechaVencimiento  DateTime
+  estado            RentaEstadoLiquidacion @default(PENDIENTE)
+
+  pago RentaPago?
+
+  creadoPor String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tipo, vigencia])
+  @@index([predioId])
+  @@index([establecimientoId])
+  @@index([rubroIngresoId])
+  @@map("renta_liquidaciones")
+}
+
+/// Pago de una liquidación (pago total — mismo criterio ya usado en Presupuesto→Pago y
+/// Nómina→pagar). Genera un Comprobante INGRESO real: D banco/caja (11xx) / C ingreso (410502
+/// predial o 410510 ICA, ya existentes en el CGC) — cierra el ciclo recaudo↔libro mayor.
+model RentaPago {
+  id            String           @id @default(cuid())
+  numero        String           @unique // "REC-" + numero de la liquidación
+  liquidacionId String           @unique
+  liquidacion   RentaLiquidacion @relation(fields: [liquidacionId], references: [id])
+  valor         Decimal          @db.Decimal(18, 2)
+  fecha         DateTime
+  medioPago     MedioPago        @default(TRANSFERENCIA)
+  comprobanteId String           @unique
+  comprobante   Comprobante      @relation(fields: [comprobanteId], references: [id])
+  creadoPor     String?
+
+  createdAt DateTime @default(now())
+
+  @@map("renta_pagos")
 }

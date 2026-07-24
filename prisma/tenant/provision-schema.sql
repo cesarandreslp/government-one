@@ -87,6 +87,15 @@ CREATE TYPE "EstadoPeriodoNomina" AS ENUM ('ABIERTO', 'LIQUIDADO', 'PAGADO', 'CE
 -- CreateEnum
 CREATE TYPE "TesoCuentaTipo" AS ENUM ('CORRIENTE', 'AHORROS', 'INVERSION_TEMPORAL', 'FONDOS_ESPECIALES');
 
+-- CreateEnum
+CREATE TYPE "RentaTipoImpuesto" AS ENUM ('PREDIAL', 'ICA');
+
+-- CreateEnum
+CREATE TYPE "RentaDestinoEconomico" AS ENUM ('RESIDENCIAL', 'COMERCIAL', 'INDUSTRIAL', 'RURAL', 'LOTE_URBANIZABLE', 'INSTITUCIONAL');
+
+-- CreateEnum
+CREATE TYPE "RentaEstadoLiquidacion" AS ENUM ('PENDIENTE', 'PAGADA', 'ANULADA');
+
 -- CreateTable
 CREATE TABLE "empleos_dafp" (
     "id" TEXT NOT NULL,
@@ -812,6 +821,109 @@ CREATE TABLE "teso_conciliacion_lineas" (
     CONSTRAINT "teso_conciliacion_lineas_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "renta_predios" (
+    "id" TEXT NOT NULL,
+    "numeroPredial" TEXT NOT NULL,
+    "contribuyenteId" TEXT NOT NULL,
+    "direccion" TEXT NOT NULL,
+    "destino" "RentaDestinoEconomico" NOT NULL,
+    "avaluoCatastral" DECIMAL(18,2) NOT NULL,
+    "estrato" INTEGER,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "renta_predios_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "renta_actividades_economicas" (
+    "id" TEXT NOT NULL,
+    "codigo" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "tarifaXMil" DECIMAL(6,2) NOT NULL,
+    "activa" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "renta_actividades_economicas_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "renta_establecimientos" (
+    "id" TEXT NOT NULL,
+    "contribuyenteId" TEXT NOT NULL,
+    "actividadId" TEXT NOT NULL,
+    "nombreComercial" TEXT NOT NULL,
+    "direccion" TEXT NOT NULL,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "renta_establecimientos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "renta_tarifas_prediales" (
+    "id" TEXT NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "destino" "RentaDestinoEconomico" NOT NULL,
+    "avaluoDesde" DECIMAL(18,2) NOT NULL,
+    "avaluoHasta" DECIMAL(65,30),
+    "tarifaXMil" DECIMAL(6,2) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "renta_tarifas_prediales_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "renta_liquidacion_consecutivos" (
+    "id" TEXT NOT NULL,
+    "tipo" "RentaTipoImpuesto" NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "ultimo" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "renta_liquidacion_consecutivos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "renta_liquidaciones" (
+    "id" TEXT NOT NULL,
+    "numero" TEXT NOT NULL,
+    "tipo" "RentaTipoImpuesto" NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "predioId" TEXT,
+    "establecimientoId" TEXT,
+    "rubroIngresoId" TEXT,
+    "baseGravable" DECIMAL(18,2) NOT NULL,
+    "tarifaAplicada" DECIMAL(6,2) NOT NULL,
+    "valor" DECIMAL(18,2) NOT NULL,
+    "fechaVencimiento" TIMESTAMP(3) NOT NULL,
+    "estado" "RentaEstadoLiquidacion" NOT NULL DEFAULT 'PENDIENTE',
+    "creadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "renta_liquidaciones_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "renta_pagos" (
+    "id" TEXT NOT NULL,
+    "numero" TEXT NOT NULL,
+    "liquidacionId" TEXT NOT NULL,
+    "valor" DECIMAL(18,2) NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "medioPago" "MedioPago" NOT NULL DEFAULT 'TRANSFERENCIA',
+    "comprobanteId" TEXT NOT NULL,
+    "creadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "renta_pagos_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "empleos_dafp_codigo_key" ON "empleos_dafp"("codigo");
 
@@ -1082,6 +1194,51 @@ CREATE UNIQUE INDEX "teso_conciliacion_lineas_extractoLineaId_key" ON "teso_conc
 -- CreateIndex
 CREATE INDEX "teso_conciliacion_lineas_conciliacionId_idx" ON "teso_conciliacion_lineas"("conciliacionId");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "renta_predios_numeroPredial_key" ON "renta_predios"("numeroPredial");
+
+-- CreateIndex
+CREATE INDEX "renta_predios_contribuyenteId_idx" ON "renta_predios"("contribuyenteId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "renta_actividades_economicas_codigo_key" ON "renta_actividades_economicas"("codigo");
+
+-- CreateIndex
+CREATE INDEX "renta_establecimientos_contribuyenteId_idx" ON "renta_establecimientos"("contribuyenteId");
+
+-- CreateIndex
+CREATE INDEX "renta_establecimientos_actividadId_idx" ON "renta_establecimientos"("actividadId");
+
+-- CreateIndex
+CREATE INDEX "renta_tarifas_prediales_vigencia_destino_idx" ON "renta_tarifas_prediales"("vigencia", "destino");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "renta_liquidacion_consecutivos_tipo_vigencia_key" ON "renta_liquidacion_consecutivos"("tipo", "vigencia");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "renta_liquidaciones_numero_key" ON "renta_liquidaciones"("numero");
+
+-- CreateIndex
+CREATE INDEX "renta_liquidaciones_tipo_vigencia_idx" ON "renta_liquidaciones"("tipo", "vigencia");
+
+-- CreateIndex
+CREATE INDEX "renta_liquidaciones_predioId_idx" ON "renta_liquidaciones"("predioId");
+
+-- CreateIndex
+CREATE INDEX "renta_liquidaciones_establecimientoId_idx" ON "renta_liquidaciones"("establecimientoId");
+
+-- CreateIndex
+CREATE INDEX "renta_liquidaciones_rubroIngresoId_idx" ON "renta_liquidaciones"("rubroIngresoId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "renta_pagos_numero_key" ON "renta_pagos"("numero");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "renta_pagos_liquidacionId_key" ON "renta_pagos"("liquidacionId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "renta_pagos_comprobanteId_key" ON "renta_pagos"("comprobanteId");
+
 -- AddForeignKey
 ALTER TABLE "dependencias" ADD CONSTRAINT "dependencias_padreId_fkey" FOREIGN KEY ("padreId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -1240,10 +1397,28 @@ ALTER TABLE "teso_conciliacion_lineas" ADD CONSTRAINT "teso_conciliacion_lineas_
 
 -- AddForeignKey
 ALTER TABLE "teso_conciliacion_lineas" ADD CONSTRAINT "teso_conciliacion_lineas_extractoLineaId_fkey" FOREIGN KEY ("extractoLineaId") REFERENCES "teso_extracto_lineas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-┌─────────────────────────────────────────────────────────┐
-│  Update available 7.8.0 -> 7.9.0                        │
-│  Run the following to update                            │
-│    npm i --save-dev prisma@latest                       │
-│    npm i @prisma/client@latest                          │
-└─────────────────────────────────────────────────────────┘
+
+-- AddForeignKey
+ALTER TABLE "renta_predios" ADD CONSTRAINT "renta_predios_contribuyenteId_fkey" FOREIGN KEY ("contribuyenteId") REFERENCES "cp_terceros"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "renta_establecimientos" ADD CONSTRAINT "renta_establecimientos_contribuyenteId_fkey" FOREIGN KEY ("contribuyenteId") REFERENCES "cp_terceros"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "renta_establecimientos" ADD CONSTRAINT "renta_establecimientos_actividadId_fkey" FOREIGN KEY ("actividadId") REFERENCES "renta_actividades_economicas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "renta_liquidaciones" ADD CONSTRAINT "renta_liquidaciones_predioId_fkey" FOREIGN KEY ("predioId") REFERENCES "renta_predios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "renta_liquidaciones" ADD CONSTRAINT "renta_liquidaciones_establecimientoId_fkey" FOREIGN KEY ("establecimientoId") REFERENCES "renta_establecimientos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "renta_liquidaciones" ADD CONSTRAINT "renta_liquidaciones_rubroIngresoId_fkey" FOREIGN KEY ("rubroIngresoId") REFERENCES "psp_rubros"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "renta_pagos" ADD CONSTRAINT "renta_pagos_liquidacionId_fkey" FOREIGN KEY ("liquidacionId") REFERENCES "renta_liquidaciones"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "renta_pagos" ADD CONSTRAINT "renta_pagos_comprobanteId_fkey" FOREIGN KEY ("comprobanteId") REFERENCES "cp_comprobantes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
