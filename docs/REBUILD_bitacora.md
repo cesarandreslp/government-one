@@ -796,6 +796,61 @@ colombianas (`docs/conformacion hacienda.pdf`) y (b) el estado real del código 
 
 **No se construyó nada de esto todavía — queda para que el usuario decida el orden/alcance.**
 
+## Progreso — Cargos diferenciados en Hacienda (2026-07-24, commit `710c056`)
+
+El usuario corrigió, sin que se le preguntara: *"no todos los funcionarios de hacienda tienen
+acceso a todas las funcionalidades, algunos lo tendrán a presupuesto, otros a recaudo, otros a
+coactivo, algunos a dos módulos, otros a 3, etc"*. Verificado en el código: la plantilla de
+Secretaría de Hacienda (`HAC`) solo tenía 2 cargos desde la fundación (Secretario + Profesional de
+Presupuesto) — Contabilidad, Tesorería y Rentas, aunque ya construidos y funcionando, no tenían
+ningún cargo real que los operara (solo el bypass de ADMIN/SUPER_ADMIN podía usarlos).
+
+Se agregaron 3 cargos nuevos a la plantilla ALCALDIA, cada uno con un módulo propio (Profesional
+de Contabilidad, Profesional de Presupuesto, Profesional de Rentas); el Secretario quedó con
+consulta transversal a las 4 sub-áreas + aprobar presupuesto (supervisión, no operación); el
+Tesorero es la única excepción con 2 módulos (tesorería completa + `rentas:recaudar` — separación
+real entre quien liquida el impuesto y quien lo cobra). Re-sembrado contra el tenant demo
+(idempotente). Nueva memoria de feedback (`feedback-cargos-diferenciados-por-submodulo`): al
+agregar un módulo nuevo a una dependencia que YA existe en una plantilla, hay que actualizar
+también los cargos — el código soportar el gating no basta.
+
+## Progreso — Cobro Coactivo (2026-07-24, commit `48487ac`)
+
+Segundo hueco de la auditoría cerrado (dependía de Rentas, ya lista). Agrupa la cartera VENCIDA de
+un contribuyente por tipo de impuesto en un expediente (`CoactivoProceso`, restringido a un solo
+`RentaTipoImpuesto` por proceso para que la contabilización sea determinística). Historial
+insert-only de actuaciones (`CoactivoActuacion`, mismo patrón que `ProyectoHitoReporte`) con
+transición de estado automática (PERSUASIVO→MANDAMIENTO_PAGO→EMBARGO). El acuerdo de pago en
+cuotas (`CoactivoAcuerdoPago`+`CoactivoCuota`) es la única vía de pago parcial — el motor
+(`src/lib/coactivo/motor.ts::calcularCuotas`) reparte el saldo entre N cuotas, con la ÚLTIMA
+absorbiendo el residuo de redondeo para que la suma sea exacta. Cada cuota (o el pago total antes
+de entrar a un acuerdo) postea un Comprobante INGRESO real sobre las mismas cuentas
+410502/410510 de Rentas — cero duplicación, mismo diseño ya probado en Tesorería. Al pagarse la
+última cuota, el proceso pasa a TERMINADO automáticamente y las liquidaciones agrupadas a PAGADA
+en bloque (nuevo estado `EN_COBRO_COACTIVO` en `RentaEstadoLiquidacion` mientras tanto).
+
+**Aplica de inmediato la lección de cargos diferenciados:** nuevo cargo "Profesional de Cobro
+Coactivo" (`cobro_coactivo:[consultar,gestionar]`) separado del Tesorero (`cobro_coactivo:
+[recaudar]`) — quien tramita el mandamiento/embargo no es quien recibe el pago.
+
+**Simplificación legal declarada honestamente:** no calcula interés de mora (Art. 634-635 ET)
+sobre la deuda, y el historial de actuaciones es un registro administrativo del trámite, no un
+sistema de notificación judicial con efectos procesales (edictos, términos de ejecutoria) — eso
+excede lo que este corte puede garantizar sin asesoría jurídica específica.
+
+**Verificado EN VIVO en `demo.ossgovernmentone.lat`:** liquidé una ICA vencida ($350.000) del
+contribuyente de prueba, abrí `COA-2026-000001` (deuda inicial $350.000 exacto), registré
+mandamiento de pago (estado avanzó correctamente), creé un acuerdo de 3 cuotas — **$116.666 +
+$116.666 + $116.668 = $350.000 exacto** (redondeo absorbido por la última) — pagué las 3 cuotas
+una por una: el proceso terminó automáticamente al pagar la última, saldo pendiente a $0,
+`RentaLiquidacion` pasó a PAGADA, **3 comprobantes `CI-2026-000004/5/6` cuadrados en Contabilidad**
+($116.668/$116.666/$116.666 débito=crédito cada uno), y **los 3 aparecieron automáticos en
+Tesorería** con `origen: cobro_coactivo`, sin ninguna captura adicional.
+
+**Módulo Cobro Coactivo: COMPLETO.** Quedan 6 huecos de la auditoría original (PAC por fuente,
+cierre de vigencia, estados financieros CHIP-CGN, boletín de caja, crédito público/pensiones,
+planeación financiera/MFMP) — decisión del usuario cuándo seguir.
+
 El usuario, tras releer su propio comparativo (`docs/conformacion hacienda.pdf`, cruce de 7
 Secretarías de Hacienda reales), eligió **Rentas/Ingresos tributarios** como el siguiente hueco a
 cerrar — confirmado por `AskUserQuestion`, el hueco #1 de la lista.
