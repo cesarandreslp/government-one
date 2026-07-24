@@ -789,5 +789,9 @@ colombianas (`docs/conformacion hacienda.pdf`) y (b) el estado real del código 
    pero mucho más relevantes en gobernaciones/distritos grandes que en alcaldías/personerías pequeñas; encajan
    en el patrón data-driven del proyecto (módulo opcional, plantilla por tipo de entidad) si se decide
    construirlos.
+8. **Planeación Financiera / Estudios Fiscales** (macroproceso 6 del comparativo) — Marco Fiscal de Mediano
+   Plazo, proyecciones fiscales, indicadores de sostenibilidad. Es la capa analítica que consume el histórico
+   de los otros módulos (ya real y verificado); no requiere captura nueva, solo agregación/reporte — el hueco
+   más barato de cerrar de toda la lista, pero solo tiene sentido una vez haya varias vigencias de datos reales.
 
 **No se construyó nada de esto todavía — queda para que el usuario decida el orden/alcance.**
