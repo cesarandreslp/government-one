@@ -17,6 +17,7 @@ export const CAPACIDADES_POR_MODULO = {
   nomina: ["consultar", "liquidar", "pagar"],
   tesoreria: ["consultar", "administrar", "conciliar"],
   rentas: ["consultar", "administrar", "liquidar", "recaudar"],
+  cobro_coactivo: ["consultar", "gestionar", "recaudar"],
 } as const
 
 export type ModuloId = keyof typeof CAPACIDADES_POR_MODULO

@@ -94,7 +94,16 @@ CREATE TYPE "RentaTipoImpuesto" AS ENUM ('PREDIAL', 'ICA');
 CREATE TYPE "RentaDestinoEconomico" AS ENUM ('RESIDENCIAL', 'COMERCIAL', 'INDUSTRIAL', 'RURAL', 'LOTE_URBANIZABLE', 'INSTITUCIONAL');
 
 -- CreateEnum
-CREATE TYPE "RentaEstadoLiquidacion" AS ENUM ('PENDIENTE', 'PAGADA', 'ANULADA');
+CREATE TYPE "RentaEstadoLiquidacion" AS ENUM ('PENDIENTE', 'EN_COBRO_COACTIVO', 'PAGADA', 'ANULADA');
+
+-- CreateEnum
+CREATE TYPE "CoactivoEstado" AS ENUM ('PERSUASIVO', 'MANDAMIENTO_PAGO', 'EMBARGO', 'ACUERDO_PAGO', 'TERMINADO');
+
+-- CreateEnum
+CREATE TYPE "CoactivoTipoActuacion" AS ENUM ('COBRO_PERSUASIVO', 'MANDAMIENTO_PAGO', 'MEDIDA_CAUTELAR', 'ACUERDO_PAGO', 'PAGO', 'TERMINACION', 'OTRA');
+
+-- CreateEnum
+CREATE TYPE "CoactivoEstadoCuota" AS ENUM ('PENDIENTE', 'PAGADA');
 
 -- CreateTable
 CREATE TABLE "empleos_dafp" (
@@ -902,6 +911,7 @@ CREATE TABLE "renta_liquidaciones" (
     "valor" DECIMAL(18,2) NOT NULL,
     "fechaVencimiento" TIMESTAMP(3) NOT NULL,
     "estado" "RentaEstadoLiquidacion" NOT NULL DEFAULT 'PENDIENTE',
+    "procesoCoactivoId" TEXT,
     "creadoPor" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -922,6 +932,73 @@ CREATE TABLE "renta_pagos" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "renta_pagos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "coa_consecutivos" (
+    "id" TEXT NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "ultimo" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "coa_consecutivos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "coa_procesos" (
+    "id" TEXT NOT NULL,
+    "numero" TEXT NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "contribuyenteId" TEXT NOT NULL,
+    "tipo" "RentaTipoImpuesto" NOT NULL,
+    "estado" "CoactivoEstado" NOT NULL DEFAULT 'PERSUASIVO',
+    "valorInicial" DECIMAL(18,2) NOT NULL,
+    "fechaApertura" TIMESTAMP(3) NOT NULL,
+    "creadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "coa_procesos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "coa_actuaciones" (
+    "id" TEXT NOT NULL,
+    "procesoId" TEXT NOT NULL,
+    "tipo" "CoactivoTipoActuacion" NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "descripcion" TEXT NOT NULL,
+    "registradoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "coa_actuaciones_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "coa_acuerdos_pago" (
+    "id" TEXT NOT NULL,
+    "procesoId" TEXT NOT NULL,
+    "numeroCuotas" INTEGER NOT NULL,
+    "valorCuota" DECIMAL(18,2) NOT NULL,
+    "fechaPrimeraCuota" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "coa_acuerdos_pago_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "coa_cuotas" (
+    "id" TEXT NOT NULL,
+    "acuerdoId" TEXT NOT NULL,
+    "numero" INTEGER NOT NULL,
+    "fechaVencimiento" TIMESTAMP(3) NOT NULL,
+    "valor" DECIMAL(18,2) NOT NULL,
+    "estado" "CoactivoEstadoCuota" NOT NULL DEFAULT 'PENDIENTE',
+    "comprobanteId" TEXT,
+    "creadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "coa_cuotas_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -1231,6 +1308,9 @@ CREATE INDEX "renta_liquidaciones_establecimientoId_idx" ON "renta_liquidaciones
 CREATE INDEX "renta_liquidaciones_rubroIngresoId_idx" ON "renta_liquidaciones"("rubroIngresoId");
 
 -- CreateIndex
+CREATE INDEX "renta_liquidaciones_procesoCoactivoId_idx" ON "renta_liquidaciones"("procesoCoactivoId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "renta_pagos_numero_key" ON "renta_pagos"("numero");
 
 -- CreateIndex
@@ -1238,6 +1318,33 @@ CREATE UNIQUE INDEX "renta_pagos_liquidacionId_key" ON "renta_pagos"("liquidacio
 
 -- CreateIndex
 CREATE UNIQUE INDEX "renta_pagos_comprobanteId_key" ON "renta_pagos"("comprobanteId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "coa_consecutivos_vigencia_key" ON "coa_consecutivos"("vigencia");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "coa_procesos_numero_key" ON "coa_procesos"("numero");
+
+-- CreateIndex
+CREATE INDEX "coa_procesos_contribuyenteId_idx" ON "coa_procesos"("contribuyenteId");
+
+-- CreateIndex
+CREATE INDEX "coa_procesos_tipo_vigencia_idx" ON "coa_procesos"("tipo", "vigencia");
+
+-- CreateIndex
+CREATE INDEX "coa_actuaciones_procesoId_idx" ON "coa_actuaciones"("procesoId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "coa_acuerdos_pago_procesoId_key" ON "coa_acuerdos_pago"("procesoId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "coa_cuotas_comprobanteId_key" ON "coa_cuotas"("comprobanteId");
+
+-- CreateIndex
+CREATE INDEX "coa_cuotas_acuerdoId_idx" ON "coa_cuotas"("acuerdoId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "coa_cuotas_acuerdoId_numero_key" ON "coa_cuotas"("acuerdoId", "numero");
 
 -- AddForeignKey
 ALTER TABLE "dependencias" ADD CONSTRAINT "dependencias_padreId_fkey" FOREIGN KEY ("padreId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -1417,8 +1524,26 @@ ALTER TABLE "renta_liquidaciones" ADD CONSTRAINT "renta_liquidaciones_establecim
 ALTER TABLE "renta_liquidaciones" ADD CONSTRAINT "renta_liquidaciones_rubroIngresoId_fkey" FOREIGN KEY ("rubroIngresoId") REFERENCES "psp_rubros"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "renta_liquidaciones" ADD CONSTRAINT "renta_liquidaciones_procesoCoactivoId_fkey" FOREIGN KEY ("procesoCoactivoId") REFERENCES "coa_procesos"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "renta_pagos" ADD CONSTRAINT "renta_pagos_liquidacionId_fkey" FOREIGN KEY ("liquidacionId") REFERENCES "renta_liquidaciones"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "renta_pagos" ADD CONSTRAINT "renta_pagos_comprobanteId_fkey" FOREIGN KEY ("comprobanteId") REFERENCES "cp_comprobantes"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "coa_procesos" ADD CONSTRAINT "coa_procesos_contribuyenteId_fkey" FOREIGN KEY ("contribuyenteId") REFERENCES "cp_terceros"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "coa_actuaciones" ADD CONSTRAINT "coa_actuaciones_procesoId_fkey" FOREIGN KEY ("procesoId") REFERENCES "coa_procesos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "coa_acuerdos_pago" ADD CONSTRAINT "coa_acuerdos_pago_procesoId_fkey" FOREIGN KEY ("procesoId") REFERENCES "coa_procesos"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "coa_cuotas" ADD CONSTRAINT "coa_cuotas_acuerdoId_fkey" FOREIGN KEY ("acuerdoId") REFERENCES "coa_acuerdos_pago"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "coa_cuotas" ADD CONSTRAINT "coa_cuotas_comprobanteId_fkey" FOREIGN KEY ("comprobanteId") REFERENCES "cp_comprobantes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 

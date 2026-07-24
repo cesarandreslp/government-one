@@ -532,6 +532,7 @@ model Tercero {
   contratos Contrato[]
   rentaPredios         RentaPredio[]
   rentaEstablecimientos RentaEstablecimiento[]
+  procesosCoactivo     CoactivoProceso[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -571,6 +572,7 @@ model Comprobante {
   liquidacionesNomina LiquidacionNomina[]
   pagosPasivosNomina  NominaPagoPasivo[]
   pagoRenta           RentaPago?
+  pagoCuotaCoactivo   CoactivoCuota?
 
   // Trazabilidad cruzada (presupuesto/nómina/… postean aquí).
   fuenteModulo    String?
@@ -1342,6 +1344,7 @@ enum RentaDestinoEconomico {
 
 enum RentaEstadoLiquidacion {
   PENDIENTE
+  EN_COBRO_COACTIVO
   PAGADA
   ANULADA
 }
@@ -1453,6 +1456,10 @@ model RentaLiquidacion {
   fechaVencimiento  DateTime
   estado            RentaEstadoLiquidacion @default(PENDIENTE)
 
+  /// Proceso de cobro coactivo que la agrupó (null = aún no entró a cobro coactivo).
+  procesoCoactivoId String?
+  procesoCoactivo   CoactivoProceso? @relation(fields: [procesoCoactivoId], references: [id])
+
   pago RentaPago?
 
   creadoPor String?
@@ -1464,6 +1471,7 @@ model RentaLiquidacion {
   @@index([predioId])
   @@index([establecimientoId])
   @@index([rubroIngresoId])
+  @@index([procesoCoactivoId])
   @@map("renta_liquidaciones")
 }
 
@@ -1485,4 +1493,134 @@ model RentaPago {
   createdAt DateTime @default(now())
 
   @@map("renta_pagos")
+}
+
+// ───────────────────── Módulo: COBRO COACTIVO (Ley 1066/2006, Art. 823+ ET) ─────────────────────
+// Agrupa las liquidaciones de Rentas VENCIDAS de un mismo contribuyente+tipo de impuesto en un
+// expediente único (`CoactivoProceso`) — refleja cómo se cobra en la práctica: por deudor, no por
+// factura suelta. `CoactivoActuacion` es un historial insert-only (auditoría ante entes de
+// control, mismo patrón que `ProyectoHitoReporte`). El acuerdo de pago en cuotas es la única vía
+// de pago parcial de este módulo; una vez pagada la última cuota (o pagado el total antes de
+// entrar a un acuerdo), el proceso TERMINA y las liquidaciones agrupadas pasan a PAGADA en bloque.
+// Cada cuota/pago total postea un Comprobante INGRESO real — mismo diseño de "cero duplicación"
+// que Rentas y Tesorería.
+//
+// Simplificación legal declarada honestamente (no placeholder falso): NO calcula intereses de
+// mora (Art. 634-635 ET) sobre la deuda, y `CoactivoActuacion` es un registro administrativo del
+// trámite, no un sistema de notificación judicial con efectos procesales (edictos, términos de
+// ejecutoria) — eso excede lo que este corte puede garantizar sin asesoría jurídica específica.
+
+enum CoactivoEstado {
+  PERSUASIVO // cobro persuasivo previo, antes del mandamiento de pago formal
+  MANDAMIENTO_PAGO
+  EMBARGO // medida cautelar decretada
+  ACUERDO_PAGO
+  TERMINADO
+}
+
+enum CoactivoTipoActuacion {
+  COBRO_PERSUASIVO
+  MANDAMIENTO_PAGO
+  MEDIDA_CAUTELAR
+  ACUERDO_PAGO
+  PAGO
+  TERMINACION
+  OTRA
+}
+
+enum CoactivoEstadoCuota {
+  PENDIENTE
+  PAGADA
+}
+
+/// Contador atómico del consecutivo de proceso de cobro coactivo, por vigencia.
+model CoactivoConsecutivo {
+  id       String @id @default(cuid())
+  vigencia Int    @unique
+  ultimo   Int    @default(0)
+
+  @@map("coa_consecutivos")
+}
+
+/// Expediente de cobro coactivo: agrupa la cartera VENCIDA de un contribuyente para UN tipo de
+/// impuesto (predial o ICA, nunca mezclados — mantiene la contabilización determinística: cada
+/// proceso postea siempre a la misma cuenta de ingreso 410502/410510).
+model CoactivoProceso {
+  id              String         @id @default(cuid())
+  numero          String         @unique // "COA-2026-000001"
+  vigencia        Int
+  contribuyenteId String
+  contribuyente   Tercero        @relation(fields: [contribuyenteId], references: [id])
+  tipo            RentaTipoImpuesto
+  estado          CoactivoEstado @default(PERSUASIVO)
+  /// Snapshot de la deuda al abrir el proceso — suma de las liquidaciones agrupadas.
+  valorInicial    Decimal        @db.Decimal(18, 2)
+  fechaApertura   DateTime
+  creadoPor       String?
+
+  liquidaciones RentaLiquidacion[]
+  actuaciones   CoactivoActuacion[]
+  acuerdoPago   CoactivoAcuerdoPago?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contribuyenteId])
+  @@index([tipo, vigencia])
+  @@map("coa_procesos")
+}
+
+/// Historial insert-only del trámite — auditoría ante entes de control (Contraloría/Procuraduría).
+model CoactivoActuacion {
+  id          String                @id @default(cuid())
+  procesoId   String
+  proceso     CoactivoProceso       @relation(fields: [procesoId], references: [id], onDelete: Cascade)
+  tipo        CoactivoTipoActuacion
+  fecha       DateTime
+  descripcion String
+  registradoPor String?
+
+  createdAt DateTime @default(now())
+
+  @@index([procesoId])
+  @@map("coa_actuaciones")
+}
+
+/// Acuerdo de pago en cuotas — única forma de pago PARCIAL de la deuda coactiva. Una vez creado,
+/// el proceso pasa a estado ACUERDO_PAGO; termina cuando se paga la última cuota.
+model CoactivoAcuerdoPago {
+  id                String          @id @default(cuid())
+  procesoId         String          @unique
+  proceso           CoactivoProceso @relation(fields: [procesoId], references: [id])
+  numeroCuotas      Int
+  valorCuota        Decimal         @db.Decimal(18, 2)
+  fechaPrimeraCuota DateTime
+
+  cuotas CoactivoCuota[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("coa_acuerdos_pago")
+}
+
+/// Cuota individual del acuerdo. Al pagarse postea un Comprobante INGRESO real (mismo criterio
+/// que `RentaPago`: D banco/caja / C cuenta de ingreso del tipo de impuesto del proceso).
+model CoactivoCuota {
+  id            String              @id @default(cuid())
+  acuerdoId     String
+  acuerdo       CoactivoAcuerdoPago @relation(fields: [acuerdoId], references: [id], onDelete: Cascade)
+  numero        Int
+  fechaVencimiento DateTime
+  valor         Decimal             @db.Decimal(18, 2)
+  estado        CoactivoEstadoCuota @default(PENDIENTE)
+  comprobanteId String?             @unique
+  comprobante   Comprobante?        @relation(fields: [comprobanteId], references: [id])
+  creadoPor     String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([acuerdoId, numero])
+  @@index([acuerdoId])
+  @@map("coa_cuotas")
 }
