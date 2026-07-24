@@ -905,3 +905,34 @@ al sistema (no solo los consume).
 enlace opcional a Presupuesto). Quedan 7 huecos más de la auditoría original sin construir
 (cobro coactivo, PAC, cierre de vigencia, estados financieros CHIP-CGN, boletín de caja, crédito
 público/fondo de pensiones, planeación financiera/MFMP) — decisión del usuario cuándo seguir.
+
+## Progreso — Talento Humano: separar Nómina de Administración de Personal (2026-07-24, commit `a029227`)
+
+El usuario subió un segundo comparativo (`docs/Estructura Secretaría takento humano.pdf`, misma
+metodología que el de Hacienda: estructura real de Secretarías de Talento Humano de varias
+alcaldías/gobernaciones colombianas) y pidió aplicar **la misma lógica de cargos diferenciados**
+a Talento Humano. Verificado en el código: la oficina `TH` tenía 2 cargos (Jefe + Profesional de
+Talento Humano) con **grants IDÉNTICOS** — ambos solo `gestion_humana`, y **ninguno** tenía la
+capacidad `nomina`, pese a que Nómina es un módulo completo y funcionando desde hace días. Mismo
+patrón exacto que el hallazgo de Hacienda, esta vez detectado por el usuario en vez de por mí.
+
+El comparativo confirma que "Dirección de Nómina" es una dependencia real separada de
+"Administración de Personal" en toda entidad territorial, descrita como "uno de los procesos más
+críticos" — refuerza la separación de funciones ya aplicada en Rentas/Tesorería/Coactivo (quien
+liquida no es quien paga/gestiona).
+
+**Cambio (ALCALDIA y PERSONERIA):** nuevo cargo **Profesional de Nómina**
+(`nomina:[consultar,liquidar,pagar]`), separado de **Profesional de Talento Humano**
+(`gestion_humana` solo — vinculación y actos administrativos). El **Jefe de Talento Humano** gana
+`nomina:[consultar]` para supervisión sin operar el detalle (mismo criterio que el Secretario de
+Hacienda: consulta transversal, no ejecución). Re-sembrado contra el tenant demo — verificado por
+script (patrón `verificacion-por-script-vs-login`, la sesión del navegador había expirado y no se
+reingresó): los 3 cargos quedaron con los grants exactos diseñados.
+
+**Nota:** de los 13 macroprocesos del comparativo (Seguridad Social, SST, Bienestar Social,
+Capacitación, Evaluación del Desempeño, Relaciones Laborales, Situaciones Administrativas,
+Gestión Disciplinaria, Historia Laboral, Planeación del TH, Sistemas de Información), solo
+`gestion_humana` (Administración de Personal + Situaciones Administrativas) y `nomina` existen
+hoy como módulos reales en el código — el resto son huecos funcionales de Talento Humano, no de
+gobernanza de cargos, y quedan fuera de este cambio (no se inventaron capacidades para
+funcionalidad que no existe).
