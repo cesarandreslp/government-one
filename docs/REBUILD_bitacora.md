@@ -795,3 +795,58 @@ colombianas (`docs/conformacion hacienda.pdf`) y (b) el estado real del código 
    más barato de cerrar de toda la lista, pero solo tiene sentido una vez haya varias vigencias de datos reales.
 
 **No se construyó nada de esto todavía — queda para que el usuario decida el orden/alcance.**
+
+El usuario, tras releer su propio comparativo (`docs/conformacion hacienda.pdf`, cruce de 7
+Secretarías de Hacienda reales), eligió **Rentas/Ingresos tributarios** como el siguiente hueco a
+cerrar — confirmado por `AskUserQuestion`, el hueco #1 de la lista.
+
+## Progreso — Rentas: impuesto predial + ICA (2026-07-24, commit `eb214c6`)
+
+Cierra el hueco más grande de la auditoría: Presupuesto solo modelaba el lado del GASTO
+(CDP→RP→Obligación→Pago); el INGRESO no tenía equivalente pese a que el CCPET ya tiene 512 rubros
+de tipo INGRESO sembrados.
+
+**Diseño (evita duplicar primitivas ya existentes):** el contribuyente es SIEMPRE un `Tercero`
+(mismo modelo que ya usan Contabilidad/Presupuesto/Contratación) — Rentas no crea su propio
+registro de personas/NIT, solo permite seleccionar uno existente (igual patrón que Contratación
+selecciona un `Tercero` para el contratista). Las tarifas (Acuerdo Municipal, cambian cada
+vigencia y varían por entidad) son **dato del tenant editable**, nunca un catálogo nacional
+quemado — a diferencia del CGC/CCPET/DAFP que sí lo son, porque una tarifa tributaria territorial
+no es una norma nacional fija.
+
+**Modelo (tenant schema, aditivo):** `RentaPredio` (predial: número predial, `contribuyenteId`→
+Tercero, destino económico, avalúo catastral), `RentaActividadEconomica`+`RentaEstablecimiento`
+(ICA), `RentaTarifaPredial` (rango de avalúo×destino×vigencia), `RentaLiquidacion` (tipo
+PREDIAL|ICA, `predioId`/`establecimientoId` mutuamente excluyentes, `rubroIngresoId` OPCIONAL a
+`RubroPresupuestal` tipo INGRESO — reutiliza `Apropiacion` ya existente para comparar recaudado
+vs. aforado sin crear un modelo nuevo), `RentaPago` (pago total, 1:1 con la liquidación, mismo
+criterio que Presupuesto→Pago y Nómina→pagar). `provision-schema.sql` regenerado (7 tablas
+nuevas); delta aplicado a tenants + módulo `rentas` habilitado en demo.
+
+**Motor puro** (`src/lib/rentas/motor.ts`): `liquidarPredial` busca la tarifa del rango de
+avalúo+destino+vigencia y aplica `avalúo × tarifa‰`; `liquidarIca` aplica `ingresos brutos ×
+tarifa‰` de la actividad del establecimiento. Simplificación legal declarada honestamente (no
+placeholder falso): NO aplica el tope de incremento anual del predial (Ley 44/1990 Art. 6) ni
+descuentos por pronto pago — ambos son ajustes sobre este valor base correctamente calculado,
+quedan para un siguiente incremento.
+
+**Pago → Contabilidad:** cero cuentas nuevas en el CGC — `410502` (predial) y `410510` (ICA) ya
+existían del corte original. El pago postea un Comprobante INGRESO real (D banco/caja / C
+ingreso), `fuenteModulo: "rentas"` — aparece automático en Tesorería, mismo diseño de "cero
+duplicación" ya verificado en el módulo de Tesorería.
+
+**Verificado EN VIVO en `demo.ossgovernmentone.lat`:** tarifa predial 2026 RESIDENCIAL 6‰
+sin tope → predio con avalúo $120.000.000 liquidó **exacto $720.000**; actividad ICA "Actividades
+de desarrollo de software" 7‰ → establecimiento con $80.000.000 de ingresos brutos liquidó
+**exacto $560.000**; cartera pendiente mostró $1.280.000 (suma de ambas), coincidiendo al peso.
+Pagué la liquidación predial → `CI-2026-000003` posteado en Contabilidad, **$720.000 débito =
+$720.000 crédito**, cartera bajó a $560.000 (solo ICA pendiente), y el mismo movimiento apareció
+**automáticamente** en Tesorería (`CI-2026-000003 · rentas · Recaudo predial PRE-2026-000001 ·
+$720.000`) sin ninguna captura adicional — la misma prueba de "cero duplicación" que ya se hizo
+con Tesorería, ahora confirmada también desde el lado de un módulo que APORTA movimientos nuevos
+al sistema (no solo los consume).
+
+**Módulo Rentas: COMPLETO** (predial + ICA — liquidación, cartera, recaudo, posteo contable,
+enlace opcional a Presupuesto). Quedan 7 huecos más de la auditoría original sin construir
+(cobro coactivo, PAC, cierre de vigencia, estados financieros CHIP-CGN, boletín de caja, crédito
+público/fondo de pensiones, planeación financiera/MFMP) — decisión del usuario cuándo seguir.
