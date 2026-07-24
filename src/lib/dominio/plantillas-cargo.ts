@@ -84,11 +84,24 @@ const ALCALDIA: PlantillaEntidad = {
       ],
     },
     {
+      // Cargos diferenciados por sub-área (no todos los funcionarios de Hacienda tocan los
+      // mismos módulos): el secretario SUPERVISA (consulta transversal + aprueba presupuesto,
+      // no opera el detalle); cada profesional tiene UN módulo propio; el tesorero es la única
+      // excepción con 2 (tesorería completa + quien recibe el recaudo de rentas — separación de
+      // funciones real: quien LIQUIDA el impuesto no es quien lo COBRA).
       codigo: "HAC", nombre: "Secretaría de Hacienda", tipo: "SECRETARIA", padreCodigo: "DESP",
       cargos: [
-        { nombre: "Secretario de Hacienda", esJefatura: true, empleoCodigo: "020-01", grants: { presupuesto: ["aprobar"], ventanilla_unica: ["responder"] } },
-        { nombre: "Profesional de Presupuesto", empleoCodigo: "222-02", grants: { presupuesto: ["expedir_cdp", "expedir_rp"] },
+        { nombre: "Secretario de Hacienda", esJefatura: true, empleoCodigo: "020-01",
+          grants: { presupuesto: ["aprobar"], contabilidad: ["consultar"], tesoreria: ["consultar"], rentas: ["consultar"], ventanilla_unica: ["responder"] },
+          funciones: "Dirigir la Secretaría de Hacienda; aprobar el presupuesto y supervisar la ejecución financiera de todas sus sub-áreas." },
+        { nombre: "Profesional de Presupuesto", empleoCodigo: "222-02", grants: { presupuesto: ["consultar", "expedir_cdp", "expedir_rp"] },
           funciones: "Expedir y hacer seguimiento a CDP y RP; controlar la ejecución presupuestal." },
+        { nombre: "Profesional de Contabilidad", empleoCodigo: "222-02", grants: { contabilidad: ["consultar", "registrar", "administrar"] },
+          funciones: "Registrar comprobantes contables y administrar el plan de cuentas, periodos y terceros." },
+        { nombre: "Tesorero", empleoCodigo: "222-01", grants: { tesoreria: ["consultar", "administrar", "conciliar"], rentas: ["recaudar"] },
+          funciones: "Administrar las cuentas bancarias, registrar movimientos y conciliar extractos; recibir el pago de las liquidaciones de rentas." },
+        { nombre: "Profesional de Rentas", empleoCodigo: "222-02", grants: { rentas: ["consultar", "administrar", "liquidar"] },
+          funciones: "Liquidar el impuesto predial e ICA: registrar predios, establecimientos, actividades económicas y tarifas por vigencia." },
       ],
     },
     {
