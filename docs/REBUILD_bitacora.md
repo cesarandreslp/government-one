@@ -1254,3 +1254,54 @@ existente). Junto con Hacienda Pública y Talento Humano, quedan como único bac
 los 6 huecos menores de Hacienda (PAC por fuente, cierre de vigencia, estados financieros
 CHIP-CGN, boletín de caja, crédito público/pensiones, Planeación Financiera/MFMP) — decisión del
 usuario cuándo seguir.
+
+## Progreso — Reestructura real de Secretaría de Planeación + PDM multi-secretaría (2026-07-27,
+commits `e62aacc`+`c648e9f`)
+
+El usuario corrigió la estructura de Planeación con el organigrama real de una secretaría grande
+(a diferencia de Hacienda/TH, que quedan FLAT con cargos diferenciados en una sola dependencia,
+Planeación pidió sub-dependencias reales): Despacho (Secretario, se queda en PLAN), Secretaría del
+Secretario (asistente ejecutivo), Ventanilla Única propia, Contratación propia, Alumbrado Público,
+Estratificación (separada), COTE (ver corrección abajo), Banco de Proyectos (con seguimiento al
+PDM como su función central), MIPG/FURAG, y Ordenamiento Físico y Territorial con DOS
+sub-dependencias hijas nuevas — Avisos y Tableros (publicidad exterior visual, Ley 140/1994) y
+Espacio Público — ninguna con módulo transaccional propio todavía (mismo patrón de siempre:
+estructura + `funciones` ahora, módulo cuando llegue su turno).
+
+**Corrección del usuario en el camino:** "COME — Comité Municipal de Estadística" asumía que la
+plataforma es solo para municipios — se corrigió a **COTE — Comité Territorial de Estadística**
+(la plataforma sirve alcaldías, personerías y otros tipos de entidad, no solo municipios).
+
+**Requisito funcional nuevo, ya implementado:** un PROGRAMA del PDM puede depender de VARIAS
+secretarías — muchos proyectos de dependencias distintas pueden apuntar a las metas de un mismo
+programa sin pertenecer a la dependencia "líder" del programa. `/admin/pdm` ahora agrega, por
+programa, la lista ÚNICA de proyectos contribuyentes (de cualquier secretaría) con su dependencia
+responsable, contribución financiera/física (`ejecucionProyecto`), y los CONTRATOS reales que lo
+financian (cadena `Proyecto→Cdp→Rp→Contrato→Tercero`, la misma que ya alimentaba
+`ejecucionFinanciera`) con su contratista.
+
+**🐞 Bug real encontrado y corregido de paso:** `/admin` (raíz del panel del tenant) redirigía
+siempre a `/admin/estructura`, que exige rol ADMIN/SUPER_ADMIN — un funcionario NO-admin que
+navegara directo a `/admin` (o a quien `requerirRolTenant` rebotara ahí) quedaba en
+`ERR_TOO_MANY_REDIRECTS` (mismo síntoma del bug de sesión cruzada ya arreglado, causa distinta:
+esta vez es lógica de la propia app, no la cookie). Fix: `/admin` ahora redirige al primer módulo
+VISIBLE del funcionario, o muestra un mensaje si no tiene ninguno — nunca de vuelta a una página
+que lo va a rechazar.
+
+**Migración del tenant demo:** se sembraron las 11 sub-dependencias nuevas, se MOVIERON (no se
+recrearon) los 3 cargos reales con vinculaciones vivas (Paula→Banco de Proyectos, Néstor→
+Estratificación, Héctor→Ordenamiento Físico) a sus nuevas sub-dependencias preservando su
+`cargoId`/historial, se retiró el cargo combinado "Profesional Universitario — Seguimiento PDM y
+Contratación" (sus dos funciones ya viven cada una en su propio sitio: PDM en Banco de Proyectos,
+Contratación en el nuevo PLAN-CONT) re-vinculando a Eliana con un acto administrativo real al
+nuevo cargo, y se asignó `Dependencia.modulos` (Capa 2) de forma independiente por sub-dependencia
+en vez de un solo array compartido en PLAN.
+
+**Verificado en vivo:** Paula (ya movida a la nueva sub-dependencia Banco de Proyectos) siguió
+operando sin fricción; se creó `PRY-2026-003` (Señalización Vial) liderado por HAC apuntando a la
+MISMA meta que `PRY-2026-002` (liderado por PLAN) — la vista de programa mostró ambos proyectos
+con su secretaría correcta; se enlazó `PRY-2026-001` (que ya tenía un contrato real `C-2026-003`
+con contratista "Contribuyente de prueba S.A.S." desde la verificación de Contratación) a la misma
+meta, y su contrato+contratista aparecieron correctamente anidados bajo el proyecto — los 3
+proyectos de 3 secretarías distintas (PLAN, HAC, ATC) conviviendo bajo un mismo programa, exacto
+al requisito pedido.
