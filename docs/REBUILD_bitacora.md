@@ -1125,3 +1125,50 @@ como capacidad real; "Técnico Operativo — Ordenamiento Físico y Territorial"
    SIGEP/SECOP).
 
 **Nada construido todavía — el usuario decide el orden.**
+
+## Progreso — Ordenamiento Territorial: POT/licencias urbanísticas (2026-07-27, commit `ce94f95`)
+
+El usuario eligió, vía `AskUserQuestion`, atacar primero el hueco "POT / licencias urbanísticas"
+de la auditoría de Planeación: el cargo **Técnico Operativo — Ordenamiento Físico y Territorial**
+ya existía y ya recibía PQRSD reales sobre línea de paramento/uso de suelo, pero no había módulo
+transaccional para tramitarlas más allá de responder la PQRSD genérica.
+
+**Schema** (`SolicitudUrbanistica` + `SolicitudUrbanisticaActuacion` + `UrbanisticoConsecutivo`,
+mismo patrón consecutivo-por-año + historial insert-only que Coactivo/Disciplinario): el
+solicitante REUSA `Tercero` (no se duplica registro de personas/NIT); el predio se enlaza
+OPCIONALMENTE a `RentaPredio` de Rentas cuando ya está registrado para predial, o se captura la
+dirección en texto libre si no. 5 tipos de trámite (concepto de uso de suelo, línea de paramento,
+licencia de construcción/urbanización/subdivisión); 5 estados (RADICADA→EN_REVISION/
+REQUIERE_AJUSTES→APROBADA/NEGADA). Término de ley vía `dias-habiles.ts` (mismo motor que
+Ventanilla Única): 15 días hábiles para conceptos/línea de paramento (derecho de petición general,
+Ley 1437/2011), 45 días hábiles para licencias (Decreto 1077/2015 art. 2.2.6.1.2.4.1) —
+simplificación declarada honestamente: aproximación por tipo de trámite, sin modelar suspensión de
+términos por requerimiento de documentos adicionales.
+
+**Capacidad `ordenamiento_territorial` (consultar/tramitar)** + módulo en `/admin/ordenamiento`:
+radicar solicitud (calcula automáticamente el vencimiento según el tipo) y registrar actuaciones;
+cuando la actuación lleva el estado a APROBADA/NEGADA, captura `concepto` + `fechaRespuesta` +
+`respondidoPorId` (quien la registró), igual que el patrón de Disciplinario con el fallo. Plantilla
+ALCALDIA: **Técnico Operativo — Ordenamiento** gana `tramitar` (mantiene su `ventanilla_unica:
+responder` existente); **Secretario de Planeación** gana `consultar` (supervisión, mismo patrón
+de todos los jefes de la sesión).
+
+**Gotcha de las 3 capas, otra vez** ([[feedback-cargos-diferenciados-por-submodulo]]): la
+`Dependencia` PLAN tenía `modulos: []` VACÍO desde siempre — un hueco latente preexistente que
+nunca había bloqueado nada porque nadie no-admin había ejercido esos cargos hasta ahora. Se
+corrigió añadiendo `ventanilla_unica` + `ordenamiento_territorial` al array (Layer 2), además de
+Layer 1 (`Tenant.modulosContratados`) y Layer 3 (re-siembra de plantilla).
+
+**Verificado en vivo como Héctor Fabio Cruz** (titular real del cargo, contraseña de prueba fijada
+por script — [[feedback-passwords-test-fase-construccion]]) contra la URL desplegada de Vercel
+(`demo.ossgovernmentone.lat`): radicó **URB-2026-000001** (línea de paramento, predio real
+`00-01-0001-0001-000`, vence 2026-08-17 = 15 días hábiles exactos) → registró actuación intermedia
+EN_REVISION (sin concepto de respuesta, correcto para un estado no terminal) → registró actuación
+final APROBADA con concepto de respuesta real → la solicitud quedó cerrada mostrando concepto +
+"Héctor Fabio Cruz" + fecha, historial de 3 actuaciones completo.
+
+**Quedan de la auditoría de Planeación (decisión del usuario cuándo seguir):** PDM metas e
+indicadores (hueco estructural más grande), Estratificación socioeconómica (podría reutilizar
+`RentaPredio.estrato` ya existente), SISBEN (baja prioridad). Y de Hacienda Pública: PAC por
+fuente, cierre de vigencia, estados financieros CHIP-CGN, boletín de caja, crédito público/
+pensiones, Planeación Financiera/MFMP.
