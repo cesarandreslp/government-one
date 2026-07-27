@@ -24,6 +24,7 @@ export const CAPACIDADES_POR_MODULO = {
   bienestar: ["consultar", "administrar"],
   relaciones_laborales: ["consultar", "administrar"],
   gestion_disciplinaria: ["consultar", "gestionar"],
+  ordenamiento_territorial: ["consultar", "tramitar"],
 } as const
 
 export type ModuloId = keyof typeof CAPACIDADES_POR_MODULO

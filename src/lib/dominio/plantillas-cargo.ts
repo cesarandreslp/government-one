@@ -129,7 +129,7 @@ const ALCALDIA: PlantillaEntidad = {
     {
       codigo: "PLAN", nombre: "Secretaría de Planeación", tipo: "SECRETARIA", padreCodigo: "DESP",
       cargos: [
-        { nombre: "Secretario de Planeación", esJefatura: true, empleoCodigo: "020-01", grants: { ventanilla_unica: ["responder"] } },
+        { nombre: "Secretario de Planeación", esJefatura: true, empleoCodigo: "020-01", grants: { ventanilla_unica: ["responder"], ordenamiento_territorial: ["consultar"] } },
         { nombre: "Profesional Especializado — Banco de Proyectos y Plan de Desarrollo", empleoCodigo: "222-02",
           grants: { banco_proyectos: ["administrar", "reportar_avance", "consultar"] },
           funciones: "Liderar el banco de proyectos y el seguimiento financiero y físico al cumplimiento del Plan de Desarrollo de todas las dependencias." },
@@ -139,7 +139,7 @@ const ALCALDIA: PlantillaEntidad = {
         { nombre: "Técnico Administrativo — Estratificación", empleoCodigo: "367-02",
           funciones: "Actualizar y hacer seguimiento a la estratificación socioeconómica del municipio." },
         { nombre: "Técnico Operativo — Ordenamiento Físico y Territorial", empleoCodigo: "314-02",
-          grants: { ventanilla_unica: ["responder"] },
+          grants: { ventanilla_unica: ["responder"], ordenamiento_territorial: ["consultar", "tramitar"] },
           funciones: "Atender trámites y consultas de ordenamiento territorial: línea de paramento, uso de suelo, licencias urbanísticas y demás asuntos del POT vigente." },
       ],
     },

@@ -43,6 +43,7 @@ export const MODULOS: Modulo[] = [
   { id: "bienestar", nombre: "Bienestar Social", categoria: "Talento Humano", dependeDe: ["gestion_humana"], ruta: "/admin/bienestar", descripcion: "Actividades de bienestar, incentivos y participación." },
   { id: "relaciones_laborales", nombre: "Relaciones Laborales", categoria: "Talento Humano", dependeDe: ["gestion_humana"], ruta: "/admin/relaciones-laborales", descripcion: "Permisos sindicales." },
   { id: "gestion_disciplinaria", nombre: "Gestión Disciplinaria", categoria: "Talento Humano", dependeDe: ["gestion_humana"], ruta: "/admin/disciplinario", descripcion: "Procesos disciplinarios internos (Ley 1952/2019)." },
+  { id: "ordenamiento_territorial", nombre: "Ordenamiento Territorial", categoria: "Planeación", ruta: "/admin/ordenamiento", descripcion: "Conceptos de uso de suelo, línea de paramento y licencias urbanísticas (Ley 388/1997)." },
 ]
 
 const POR_ID = new Map(MODULOS.map((m) => [m.id, m]))

@@ -181,6 +181,7 @@ model Usuario {
   bienestarParticipaciones  BienestarParticipante[]
   permisosSindicales        PermisoSindical[]
   procesosDisciplinarios    ProcesoDisciplinario[]
+  solicitudesUrbanisticasRespondidas SolicitudUrbanistica[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -542,6 +543,7 @@ model Tercero {
   rentaPredios         RentaPredio[]
   rentaEstablecimientos RentaEstablecimiento[]
   procesosCoactivo     CoactivoProceso[]
+  solicitudesUrbanisticas SolicitudUrbanistica[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1371,6 +1373,7 @@ model RentaPredio {
   activo          Boolean               @default(true)
 
   liquidaciones RentaLiquidacion[]
+  solicitudesUrbanisticas SolicitudUrbanistica[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1920,4 +1923,85 @@ model CoactivoCuota {
   @@unique([acuerdoId, numero])
   @@index([acuerdoId])
   @@map("coa_cuotas")
+}
+
+// ───────────────────── Módulo: ORDENAMIENTO TERRITORIAL (POT) ─────────────────────
+// Conceptos de uso de suelo, línea de paramento y licencias urbanísticas (Ley 388/1997,
+// Decreto 1077/2015 — municipios sin curaduría urbana las expide directamente la Secretaría de
+// Planeación). El solicitante REUSA `Tercero` (no se duplica un registro de personas/NIT); el
+// predio se puede enlazar OPCIONALMENTE a `RentaPredio` (Rentas) cuando ya está registrado para
+// predial — si no, se captura la dirección en texto libre. Historial de actuaciones insert-only,
+// mismo patrón que `CoactivoActuacion`/`DisciplinarioActuacion`. Términos de ley vía
+// `src/lib/dias-habiles.ts` (mismo motor que Ventanilla Única) — simplificación declarada
+// honestamente: aproximación por tipo de trámite (Decreto 1077/2015 Art. 2.2.6.1.2.4.1 para
+// licencias; derecho de petición general, Ley 1437/2011, para conceptos/certificaciones), sin
+// modelar las suspensiones de término por requerimiento de documentos adicionales.
+
+enum UrbanisticoTipo {
+  CONCEPTO_USO_SUELO
+  LINEA_PARAMENTO
+  LICENCIA_CONSTRUCCION
+  LICENCIA_URBANIZACION
+  LICENCIA_SUBDIVISION
+}
+
+enum UrbanisticoEstado {
+  RADICADA
+  EN_REVISION
+  REQUIERE_AJUSTES
+  APROBADA
+  NEGADA
+}
+
+/// Contador atómico del consecutivo de solicitudes urbanísticas, por año.
+model UrbanisticoConsecutivo {
+  id     String @id @default(cuid())
+  anio   Int    @unique
+  ultimo Int    @default(0)
+
+  @@map("urb_consecutivos")
+}
+
+model SolicitudUrbanistica {
+  id              String            @id @default(cuid())
+  numero          String            @unique // "URB-2026-000001"
+  tipo            UrbanisticoTipo
+  solicitanteId   String
+  solicitante     Tercero           @relation(fields: [solicitanteId], references: [id])
+  predioId        String?
+  predio          RentaPredio?      @relation(fields: [predioId], references: [id])
+  direccion       String
+  descripcion     String
+  estado          UrbanisticoEstado @default(RADICADA)
+  fechaRadicacion DateTime
+  fechaVencimiento DateTime
+  concepto        String?
+  fechaRespuesta  DateTime?
+  respondidoPorId String?
+  respondidoPor   Usuario?          @relation(fields: [respondidoPorId], references: [id])
+  creadoPor       String?
+
+  actuaciones SolicitudUrbanisticaActuacion[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([solicitanteId])
+  @@index([predioId])
+  @@index([tipo, estado])
+  @@map("urb_solicitudes")
+}
+
+model SolicitudUrbanisticaActuacion {
+  id            String               @id @default(cuid())
+  solicitudId   String
+  solicitud     SolicitudUrbanistica @relation(fields: [solicitudId], references: [id], onDelete: Cascade)
+  fecha         DateTime
+  descripcion   String
+  registradoPor String?
+
+  createdAt DateTime @default(now())
+
+  @@index([solicitudId])
+  @@map("urb_actuaciones")
 }

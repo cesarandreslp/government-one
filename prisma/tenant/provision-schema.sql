@@ -132,6 +132,12 @@ CREATE TYPE "CoactivoTipoActuacion" AS ENUM ('COBRO_PERSUASIVO', 'MANDAMIENTO_PA
 -- CreateEnum
 CREATE TYPE "CoactivoEstadoCuota" AS ENUM ('PENDIENTE', 'PAGADA');
 
+-- CreateEnum
+CREATE TYPE "UrbanisticoTipo" AS ENUM ('CONCEPTO_USO_SUELO', 'LINEA_PARAMENTO', 'LICENCIA_CONSTRUCCION', 'LICENCIA_URBANIZACION', 'LICENCIA_SUBDIVISION');
+
+-- CreateEnum
+CREATE TYPE "UrbanisticoEstado" AS ENUM ('RADICADA', 'EN_REVISION', 'REQUIERE_AJUSTES', 'APROBADA', 'NEGADA');
+
 -- CreateTable
 CREATE TABLE "empleos_dafp" (
     "id" TEXT NOT NULL,
@@ -1197,6 +1203,49 @@ CREATE TABLE "coa_cuotas" (
     CONSTRAINT "coa_cuotas_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "urb_consecutivos" (
+    "id" TEXT NOT NULL,
+    "anio" INTEGER NOT NULL,
+    "ultimo" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "urb_consecutivos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "urb_solicitudes" (
+    "id" TEXT NOT NULL,
+    "numero" TEXT NOT NULL,
+    "tipo" "UrbanisticoTipo" NOT NULL,
+    "solicitanteId" TEXT NOT NULL,
+    "predioId" TEXT,
+    "direccion" TEXT NOT NULL,
+    "descripcion" TEXT NOT NULL,
+    "estado" "UrbanisticoEstado" NOT NULL DEFAULT 'RADICADA',
+    "fechaRadicacion" TIMESTAMP(3) NOT NULL,
+    "fechaVencimiento" TIMESTAMP(3) NOT NULL,
+    "concepto" TEXT,
+    "fechaRespuesta" TIMESTAMP(3),
+    "respondidoPorId" TEXT,
+    "creadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "urb_solicitudes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "urb_actuaciones" (
+    "id" TEXT NOT NULL,
+    "solicitudId" TEXT NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "descripcion" TEXT NOT NULL,
+    "registradoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "urb_actuaciones_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "empleos_dafp_codigo_key" ON "empleos_dafp"("codigo");
 
@@ -1584,6 +1633,24 @@ CREATE INDEX "coa_cuotas_acuerdoId_idx" ON "coa_cuotas"("acuerdoId");
 -- CreateIndex
 CREATE UNIQUE INDEX "coa_cuotas_acuerdoId_numero_key" ON "coa_cuotas"("acuerdoId", "numero");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "urb_consecutivos_anio_key" ON "urb_consecutivos"("anio");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "urb_solicitudes_numero_key" ON "urb_solicitudes"("numero");
+
+-- CreateIndex
+CREATE INDEX "urb_solicitudes_solicitanteId_idx" ON "urb_solicitudes"("solicitanteId");
+
+-- CreateIndex
+CREATE INDEX "urb_solicitudes_predioId_idx" ON "urb_solicitudes"("predioId");
+
+-- CreateIndex
+CREATE INDEX "urb_solicitudes_tipo_estado_idx" ON "urb_solicitudes"("tipo", "estado");
+
+-- CreateIndex
+CREATE INDEX "urb_actuaciones_solicitudId_idx" ON "urb_actuaciones"("solicitudId");
+
 -- AddForeignKey
 ALTER TABLE "dependencias" ADD CONSTRAINT "dependencias_padreId_fkey" FOREIGN KEY ("padreId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -1820,4 +1887,22 @@ ALTER TABLE "coa_cuotas" ADD CONSTRAINT "coa_cuotas_acuerdoId_fkey" FOREIGN KEY 
 
 -- AddForeignKey
 ALTER TABLE "coa_cuotas" ADD CONSTRAINT "coa_cuotas_comprobanteId_fkey" FOREIGN KEY ("comprobanteId") REFERENCES "cp_comprobantes"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "urb_solicitudes" ADD CONSTRAINT "urb_solicitudes_solicitanteId_fkey" FOREIGN KEY ("solicitanteId") REFERENCES "cp_terceros"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "urb_solicitudes" ADD CONSTRAINT "urb_solicitudes_predioId_fkey" FOREIGN KEY ("predioId") REFERENCES "renta_predios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "urb_solicitudes" ADD CONSTRAINT "urb_solicitudes_respondidoPorId_fkey" FOREIGN KEY ("respondidoPorId") REFERENCES "usuarios"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "urb_actuaciones" ADD CONSTRAINT "urb_actuaciones_solicitudId_fkey" FOREIGN KEY ("solicitudId") REFERENCES "urb_solicitudes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+┌─────────────────────────────────────────────────────────┐
+│  Update available 7.8.0 -> 7.9.1                        │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
 
