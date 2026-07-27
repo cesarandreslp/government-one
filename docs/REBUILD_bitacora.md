@@ -1172,3 +1172,85 @@ indicadores (hueco estructural más grande), Estratificación socioeconómica (p
 `RentaPredio.estrato` ya existente), SISBEN (baja prioridad). Y de Hacienda Pública: PAC por
 fuente, cierre de vigencia, estados financieros CHIP-CGN, boletín de caja, crédito público/
 pensiones, Planeación Financiera/MFMP.
+
+## 🏁 SECRETARÍA DE PLANEACIÓN COMPLETA — PDM + Estratificación + SISBEN (2026-07-27, commits
+`60e9c12`+`fc928f8`)
+
+El usuario pidió explícitamente "continuemos con todo lo relacionado a planeación, ten en cuenta
+lo que ya está construido en el banco de proyectos" — cerrando de una sola pasada los 3 huecos
+restantes de la auditoría (Ordenamiento Territorial ya se había cerrado antes).
+
+**PDM** (`PdmPeriodo→PdmEje→PdmPrograma→PdmMeta`+`PdmMetaSeguimiento`, Ley 152/1994): el
+seguimiento del indicador es SIEMPRE manual por vigencia (valor acumulado vs. meta del
+cuatrienio); `Proyecto` (Banco de Proyectos) gana un `metaId` OPCIONAL — cuando un proyecto
+contribuye a una meta, su avance físico (ya calculado por `ejecucionFisicaProyecto`) se muestra
+como REFERENCIA junto al seguimiento manual, sin sumarlos automáticamente (proyectos distintos
+que aportan a la misma meta pueden medir en unidades incompatibles — sumar sería inventar un dato
+falso). Capacidad `pdm` (consultar/administrar/reportar_avance).
+
+**Estratificación**: cero modelo nuevo de predio — reusa `RentaPredio.estrato` de Rentas al 100%;
+solo se agregó `EstratificacionCambio` (historial insert-only con motivo, exigible porque el
+estrato afecta tarifas reales) + certificado imprimible. Capacidad `estratificacion`
+(consultar/actualizar).
+
+**SISBEN**: registro LOCAL de ficha/grupo/puntaje reusando `Tercero` (mismo patrón que Rentas/
+Ordenamiento — cero duplicación de identidad); declarado honestamente que el SISBEN real lo
+administra el DNP por encuesta + cargue periódico, no hay API pública consultable en vivo. Este
+módulo es el registro que Planeación mantiene a partir de esos cargues. Capacidad `sisben`
+(consultar/administrar).
+
+**Plantilla ALCALDIA**: los 3 cargos de Planeación que ya existían con solo `funciones`
+descriptivas (sin módulo real detrás) ahora tienen capacidad real: Profesional Especializado —
+Banco de Proyectos y Plan de Desarrollo gana `pdm:[administrar,reportar_avance,consultar]`
+(exactamente lo que sus funciones ya decían); Profesional Universitario — Seguimiento PDM y
+Contratación gana `pdm:[reportar_avance,consultar]` (reporta pero no administra la estructura);
+Técnico Administrativo — Estratificación se renombra a "Estratificación y SISBEN" y gana
+`estratificacion:[consultar,actualizar]`+`sisben:[consultar,administrar]` (mismo patrón de
+consolidación realista usado con el Tesorero en Hacienda); Secretario de Planeación gana
+`consultar` de los 3 (supervisión, mismo patrón de todos los jefes de esta sesión).
+
+**🐞 Bug real encontrado y corregido en el camino — loop de redirección con sesión de tenant
+inválida:** al intentar verificar en vivo, el navegador (que ya había sostenido sesiones de varios
+funcionarios de prueba a lo largo de la sesión) quedó con una cookie de sesión válidamente firmada
+pero de OTRO tenant/contexto. `requerirFuncionario` redirigía directo a `/ingresar`, pero el
+`proxy` (que solo valida la firma del JWT, no el tenant, por diseño — evita tocar la BD en cada
+request) veía la cookie como "válida" y rebotaba de vuelta a `/admin/estructura` → loop infinito
+(`ERR_TOO_MANY_REDIRECTS`), confirmado con `curl` (sin cookie, ambas rutas responden limpio en un
+solo hop) y con `fetch` desde la consola del navegador. Fix: nueva ruta `/salir-forzado` (Route
+Handler — a diferencia de una página, SÍ puede escribir cookies) que limpia la sesión antes de
+mandar a `/ingresar`; `requerirFuncionario` ahora redirige ahí en vez de a `/ingresar` cuando
+`sesion.tenantId !== ctx.tenant.id`. Es un caso límite (cookie cruzada de tenant en un navegador
+compartido de pruebas) que difícilmente afecta a un usuario real, pero es defensa en profundidad
+real, no cosmética.
+
+**🐞 Segundo hueco de la Capa 2 encontrado — `banco_proyectos` NUNCA estuvo en `Dependencia.modulos`
+de PLAN:** Banco de Proyectos llevaba verificado desde hace semanas, pero SIEMPRE como el admin
+del tenant (que salta las capas 2 y 3) — nunca como un funcionario real de Planeación. Al loguear
+a Paula (con la capacidad real `banco_proyectos:administrar` en su cargo) apareció "no tienes
+capacidades de Banco de Proyectos" pese a tener el grant correcto — la Capa 2 nunca se había
+cerrado para ese módulo en PLAN. Corregido añadiéndolo al array. **Confirma otra vez la lección de
+[[feedback-cargos-diferenciados-por-submodulo]]: verificar SIEMPRE con el funcionario real de la
+dependencia, nunca dar por bueno un módulo solo porque el admin lo ve.**
+
+**Verificado en vivo end-to-end contra `demo.ossgovernmentone.lat`, con 3 funcionarios reales
+nuevos** (Paula Restrepo, Eliana Gómez, Néstor Villegas — nombres tomados del propio ejemplo real
+que dio el usuario semanas atrás para Planeación) **+ Beatriz Torres (encargada de Secretario)**:
+- Paula creó el Plan de Desarrollo 2024-2027 completo (eje→programa→meta "Km de vía urbana
+  pavimentados", línea base 12/meta 20), creó `PRY-2026-002` en Banco de Proyectos enlazado a esa
+  meta, reportó 40% de avance físico del proyecto, y registró el seguimiento manual de la meta
+  (15.8/20 km = 79% exacto) — la tarjeta de la meta mostró AMBOS números correctamente separados
+  ("← PRY-2026-002 (40% físico)" como referencia, 79% como el seguimiento real).
+- Néstor actualizó el estrato del predio de prueba (sin registrar → 3) con motivo e historial, y
+  generó el certificado de estratificación con el estrato real; registró una ficha SISBEN real
+  (grupo B, puntaje 32.5) y generó su certificado; fue correctamente RECHAZADO en `/admin/pdm`
+  ("no tienes la capacidad pdm").
+- Beatriz (Secretaria de Planeación, encargada) vio el PDM en modo SOLO CONSULTA (sin ningún
+  formulario de administración), confirmando el patrón de supervisión de jefe aplicado
+  consistentemente en toda la plataforma.
+
+**🏁 AUDITORÍA COMPLETA DE SECRETARÍA DE PLANEACIÓN CERRADA** (Banco de Proyectos + Ordenamiento
+Territorial + PDM + Estratificación + SISBEN, los 4 huecos identificados + Banco de Proyectos ya
+existente). Junto con Hacienda Pública y Talento Humano, quedan como único backlog documentado:
+los 6 huecos menores de Hacienda (PAC por fuente, cierre de vigencia, estados financieros
+CHIP-CGN, boletín de caja, crédito público/pensiones, Planeación Financiera/MFMP) — decisión del
+usuario cuándo seguir.
