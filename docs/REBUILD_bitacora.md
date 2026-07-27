@@ -1083,3 +1083,45 @@ explicar el proceso real.
 Diego López → registró resultado **94.5 → SOBRESALIENTE** con `documentoUrl` de ejemplo → la
 tabla muestra el enlace "Ver escaneo"; el registro previo de Héctor (sin documento) sigue
 mostrando "—" correctamente (campo opcional, retrocompatible).
+
+## Auditoría — Secretaría de Planeación (2026-07-24)
+
+El usuario sugirió mirar Planeación como siguiente frente, sin subir un comparativo propio esta
+vez (a diferencia de Hacienda/TH) — esta auditoría se basa en conocimiento propio de la norma
+colombiana (Ley 152/1994 Plan de Desarrollo, Ley 388/1997 Ordenamiento Territorial, Ley 142/1994
+estratificación), declarado honestamente como tal, cruzado contra el código real. Antes de
+codear: subagente de investigación confirmó en `personeriabuga` que **no hay nada más que portar**
+más allá de Banco de Proyectos (ya portado) — solo existe un `PlanDesarrollo`+`Programa` de
+clasificación trivial de 2 niveles, sin metas/indicadores/seguimiento, y ningún modelo de
+Estratificación/POT/SISBEN en absoluto.
+
+**Ya construido:** Banco de Proyectos (financiera vs. física, brecha) — completo. Ruteo de
+Ventanilla Única + clasificación por IA hacia los cargos de Planeación (ya verificado con el caso
+real de "línea de paramento" → Héctor Fabio Cruz).
+
+**Hallazgo del mismo patrón que Hacienda/TH:** la plantilla YA tiene 2 cargos cuyas `funciones`
+describen procesos reales sin ningún módulo que los respalde — "Técnico Administrativo —
+Estratificación" (funciones: actualizar estratificación) y "Profesional Universitario —
+Seguimiento PDM y Contratación" (funciones: seguimiento al PDM) solo tienen `contratacion`/nada
+como capacidad real; "Técnico Operativo — Ordenamiento Físico y Territorial" solo tiene
+`ventanilla_unica:responder` (recibe la PQRSD pero no hay módulo transaccional para TRAMITARLA).
+
+**No construido:**
+1. **Plan de Desarrollo Municipal (PDM) — metas e indicadores** (Ley 152/1994): el documento
+   estratégico central de la administración (ejes→programas→metas→indicadores), DISTINTO del
+   Banco de Proyectos (que rastrea proyectos individuales de inversión, no el marco estratégico
+   del que cuelgan). Hueco más grande y estructural — análogo a "Rentas" en la auditoría de
+   Hacienda.
+2. **Ordenamiento Territorial (POT) — conceptos de uso de suelo y licencias urbanísticas**
+   (Ley 388/1997): el cargo YA existe y YA recibe PQRSD reales sobre esto, pero no hay módulo
+   transaccional (solicitud→concepto técnico→expedición) — solo responde la PQRSD genérica.
+3. **Estratificación socioeconómica** (Ley 142/1994): estrato por predio, certificados de
+   estratificación (documento muy solicitado por ciudadanos) — mismo patrón "barato" que
+   Historia Laboral si se modela como reporte simple, pero certificar estrato exige mantener el
+   dato del predio (posible reutilización de `RentaPredio` de Rentas, que ya tiene
+   `avaluoCatastral`+`estrato`+`destino` por predio).
+4. **SISBEN** (identificación de beneficiarios): a veces vive en Planeación, a veces en
+   Bienestar/Desarrollo Social — menor prioridad, sin integración externa posible (mismo caso que
+   SIGEP/SECOP).
+
+**Nada construido todavía — el usuario decide el orden.**
