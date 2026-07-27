@@ -44,6 +44,9 @@ export const MODULOS: Modulo[] = [
   { id: "relaciones_laborales", nombre: "Relaciones Laborales", categoria: "Talento Humano", dependeDe: ["gestion_humana"], ruta: "/admin/relaciones-laborales", descripcion: "Permisos sindicales." },
   { id: "gestion_disciplinaria", nombre: "Gestión Disciplinaria", categoria: "Talento Humano", dependeDe: ["gestion_humana"], ruta: "/admin/disciplinario", descripcion: "Procesos disciplinarios internos (Ley 1952/2019)." },
   { id: "ordenamiento_territorial", nombre: "Ordenamiento Territorial", categoria: "Planeación", ruta: "/admin/ordenamiento", descripcion: "Conceptos de uso de suelo, línea de paramento y licencias urbanísticas (Ley 388/1997)." },
+  { id: "pdm", nombre: "Plan de Desarrollo Municipal", categoria: "Planeación", ruta: "/admin/pdm", descripcion: "Ejes, programas, metas e indicadores del PDM (Ley 152/1994) y su seguimiento." },
+  { id: "estratificacion", nombre: "Estratificación", categoria: "Planeación", dependeDe: ["rentas"], ruta: "/admin/estratificacion", descripcion: "Estrato socioeconómico por predio (Ley 142/1994): actualización auditada y certificado." },
+  { id: "sisben", nombre: "SISBEN", categoria: "Planeación", ruta: "/admin/sisben", descripcion: "Registro local de clasificación socioeconómica (ficha, puntaje, grupo) y certificado." },
 ]
 
 const POR_ID = new Map(MODULOS.map((m) => [m.id, m]))

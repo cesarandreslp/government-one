@@ -14,6 +14,7 @@ interface Props {
   dependencias: Opcion[]
   proyectos: Opcion[]
   hitos: Opcion[]
+  metas: Opcion[]
 }
 
 const inicial: BpState = {}
@@ -43,16 +44,16 @@ function useResetTrasExito(state: BpState, reset: () => void) {
   }, [state])
 }
 
-export function ProyectosAcciones({ puedeAdministrar, puedeReportarAvance, dependencias, proyectos, hitos }: Props) {
+export function ProyectosAcciones({ puedeAdministrar, puedeReportarAvance, dependencias, proyectos, hitos, metas }: Props) {
   const [proyState, proyAction, proyPend] = useActionState(crearProyectoAction, inicial)
   const [hitoState, hitoAction, hitoPend] = useActionState(crearHitoAction, inicial)
   const [avanceState, avanceAction, avancePend] = useActionState(reportarAvanceAction, inicial)
 
-  const [proyForm, setProyForm] = useState({ nombre: "", descripcion: "", dependenciaId: "", vigencia: String(ANIO_ACTUAL), valorTotal: "" })
+  const [proyForm, setProyForm] = useState({ nombre: "", descripcion: "", dependenciaId: "", vigencia: String(ANIO_ACTUAL), valorTotal: "", metaId: "" })
   const [hitoForm, setHitoForm] = useState({ proyectoId: "", nombre: "", pesoPorcentual: "" })
   const [avanceForm, setAvanceForm] = useState({ hitoId: "", avancePorcentual: "", evidenciaUrl: "", observacion: "" })
 
-  useResetTrasExito(proyState, () => setProyForm({ nombre: "", descripcion: "", dependenciaId: "", vigencia: String(ANIO_ACTUAL), valorTotal: "" }))
+  useResetTrasExito(proyState, () => setProyForm({ nombre: "", descripcion: "", dependenciaId: "", vigencia: String(ANIO_ACTUAL), valorTotal: "", metaId: "" }))
   useResetTrasExito(hitoState, () => setHitoForm({ proyectoId: "", nombre: "", pesoPorcentual: "" }))
   useResetTrasExito(avanceState, () => setAvanceForm({ hitoId: "", avancePorcentual: "", evidenciaUrl: "", observacion: "" }))
 
@@ -77,6 +78,12 @@ export function ProyectosAcciones({ puedeAdministrar, puedeReportarAvance, depen
                   <input name="valorTotal" type="number" min="0" step="0.01" placeholder="Valor total (opcional)" value={proyForm.valorTotal} onChange={(e) => setProyForm({ ...proyForm, valorTotal: e.target.value })} className={INPUT} />
                 </div>
                 <textarea name="descripcion" placeholder="Descripción (opcional)" value={proyForm.descripcion} onChange={(e) => setProyForm({ ...proyForm, descripcion: e.target.value })} className={INPUT} rows={2} />
+                <select name="metaId" value={proyForm.metaId} onChange={(e) => setProyForm({ ...proyForm, metaId: e.target.value })} className={INPUT}>
+                  <option value="">— Meta del PDM a la que contribuye (opcional) —</option>
+                  {metas.map((m) => (
+                    <option key={m.id} value={m.id}>{m.etiqueta}</option>
+                  ))}
+                </select>
                 <button type="submit" disabled={proyPend} className={BTN}>{proyPend ? "Creando…" : "Crear proyecto"}</button>
               </form>
             )}

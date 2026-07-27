@@ -25,6 +25,9 @@ export const CAPACIDADES_POR_MODULO = {
   relaciones_laborales: ["consultar", "administrar"],
   gestion_disciplinaria: ["consultar", "gestionar"],
   ordenamiento_territorial: ["consultar", "tramitar"],
+  pdm: ["consultar", "administrar", "reportar_avance"],
+  estratificacion: ["consultar", "actualizar"],
+  sisben: ["consultar", "administrar"],
 } as const
 
 export type ModuloId = keyof typeof CAPACIDADES_POR_MODULO

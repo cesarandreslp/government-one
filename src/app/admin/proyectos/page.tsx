@@ -25,9 +25,10 @@ export default async function ProyectosPage() {
     funcionarioPuede(ctx, "banco_proyectos", "reportar_avance"),
   ])
 
-  const [proyectos, dependencias] = await Promise.all([
-    db.proyecto.findMany({ orderBy: { createdAt: "desc" }, include: { dependencia: true, hitos: true } }),
+  const [proyectos, dependencias, metas] = await Promise.all([
+    db.proyecto.findMany({ orderBy: { createdAt: "desc" }, include: { dependencia: true, hitos: true, meta: { include: { programa: true } } } }),
     db.dependencia.findMany({ where: { activa: true }, orderBy: { codigo: "asc" } }),
+    db.pdmMeta.findMany({ include: { programa: true }, orderBy: { createdAt: "asc" } }),
   ])
 
   const ejecuciones = await Promise.all(
@@ -85,6 +86,7 @@ export default async function ProyectosPage() {
         dependencias={dependencias.map((d) => ({ id: d.id, etiqueta: `${d.codigo} · ${d.nombre}` }))}
         proyectos={proyectos.map((p) => ({ id: p.id, etiqueta: `${p.codigo} · ${p.nombre}` }))}
         hitos={hitosOpciones}
+        metas={metas.map((m) => ({ id: m.id, etiqueta: `${m.programa.nombre} — ${m.indicador}` }))}
       />
 
       <section className="mt-8">
@@ -102,6 +104,7 @@ export default async function ProyectosPage() {
                       <span className="font-mono text-xs text-slate-500">{p.codigo}</span>
                       <span className="ml-2 font-medium text-slate-800">{p.nombre}</span>
                       <span className="ml-2 text-xs text-slate-400">{p.dependencia.codigo} · {p.vigencia}</span>
+                      {p.meta && <span className="ml-2 text-xs text-indigo-500">→ PDM: {p.meta.indicador}</span>}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_COLOR[p.estado]}`}>{p.estado}</span>

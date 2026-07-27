@@ -28,6 +28,7 @@ export async function crearProyectoAction(_prev: BpState, formData: FormData): P
   const dependenciaId = String(formData.get("dependenciaId") ?? "").trim()
   const valorTotalRaw = String(formData.get("valorTotal") ?? "").trim()
   const valorTotal = valorTotalRaw === "" ? null : Number(valorTotalRaw)
+  const metaId = String(formData.get("metaId") ?? "").trim() || null
 
   if (!nombre) return { ok: false, error: "El nombre es obligatorio." }
   if (!dependenciaId) return { ok: false, error: "Selecciona una dependencia responsable." }
@@ -46,7 +47,7 @@ export async function crearProyectoAction(_prev: BpState, formData: FormData): P
       })
       const codigo = `PRY-${vigencia}-${String(cons.ultimo).padStart(3, "0")}`
       return tx.proyecto.create({
-        data: { codigo, nombre, descripcion, vigencia, dependenciaId, valorTotal, creadoPor: ctx.sesion.usuarioId },
+        data: { codigo, nombre, descripcion, vigencia, dependenciaId, valorTotal, metaId, creadoPor: ctx.sesion.usuarioId },
       })
     })
     revalidatePath("/admin/proyectos")

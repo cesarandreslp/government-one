@@ -138,6 +138,12 @@ CREATE TYPE "UrbanisticoTipo" AS ENUM ('CONCEPTO_USO_SUELO', 'LINEA_PARAMENTO', 
 -- CreateEnum
 CREATE TYPE "UrbanisticoEstado" AS ENUM ('RADICADA', 'EN_REVISION', 'REQUIERE_AJUSTES', 'APROBADA', 'NEGADA');
 
+-- CreateEnum
+CREATE TYPE "PdmMetaTipo" AS ENUM ('PRODUCTO', 'RESULTADO');
+
+-- CreateEnum
+CREATE TYPE "SisbenGrupo" AS ENUM ('A', 'B', 'C', 'D');
+
 -- CreateTable
 CREATE TABLE "empleos_dafp" (
     "id" TEXT NOT NULL,
@@ -611,6 +617,7 @@ CREATE TABLE "bp_proyectos" (
     "fechaInicio" TIMESTAMP(3),
     "fechaFinPrevista" TIMESTAMP(3),
     "creadoPor" TEXT,
+    "metaId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -1246,6 +1253,100 @@ CREATE TABLE "urb_actuaciones" (
     CONSTRAINT "urb_actuaciones_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "pdm_periodos" (
+    "id" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "vigenciaInicio" INTEGER NOT NULL,
+    "vigenciaFin" INTEGER NOT NULL,
+    "activo" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "pdm_periodos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "pdm_ejes" (
+    "id" TEXT NOT NULL,
+    "periodoId" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "orden" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "pdm_ejes_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "pdm_programas" (
+    "id" TEXT NOT NULL,
+    "ejeId" TEXT NOT NULL,
+    "nombre" TEXT NOT NULL,
+    "dependenciaId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "pdm_programas_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "pdm_metas" (
+    "id" TEXT NOT NULL,
+    "programaId" TEXT NOT NULL,
+    "tipo" "PdmMetaTipo" NOT NULL DEFAULT 'PRODUCTO',
+    "indicador" TEXT NOT NULL,
+    "unidadMedida" TEXT NOT NULL,
+    "lineaBase" DECIMAL(14,2) NOT NULL,
+    "metaCuatrienio" DECIMAL(14,2) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "pdm_metas_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "pdm_meta_seguimientos" (
+    "id" TEXT NOT NULL,
+    "metaId" TEXT NOT NULL,
+    "vigencia" INTEGER NOT NULL,
+    "valorAcumulado" DECIMAL(14,2) NOT NULL,
+    "observacion" TEXT,
+    "reportadoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "pdm_meta_seguimientos_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "estr_cambios" (
+    "id" TEXT NOT NULL,
+    "predioId" TEXT NOT NULL,
+    "estratoAnterior" INTEGER,
+    "estratoNuevo" INTEGER NOT NULL,
+    "motivo" TEXT NOT NULL,
+    "fecha" TIMESTAMP(3) NOT NULL,
+    "registradoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "estr_cambios_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "sisben_registros" (
+    "id" TEXT NOT NULL,
+    "personaId" TEXT NOT NULL,
+    "ficha" TEXT NOT NULL,
+    "puntaje" DECIMAL(6,2),
+    "grupo" "SisbenGrupo" NOT NULL,
+    "fechaEncuesta" TIMESTAMP(3) NOT NULL,
+    "vigente" BOOLEAN NOT NULL DEFAULT true,
+    "observaciones" TEXT,
+    "registradoPor" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "sisben_registros_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "empleos_dafp_codigo_key" ON "empleos_dafp"("codigo");
 
@@ -1651,6 +1752,30 @@ CREATE INDEX "urb_solicitudes_tipo_estado_idx" ON "urb_solicitudes"("tipo", "est
 -- CreateIndex
 CREATE INDEX "urb_actuaciones_solicitudId_idx" ON "urb_actuaciones"("solicitudId");
 
+-- CreateIndex
+CREATE INDEX "pdm_ejes_periodoId_idx" ON "pdm_ejes"("periodoId");
+
+-- CreateIndex
+CREATE INDEX "pdm_programas_ejeId_idx" ON "pdm_programas"("ejeId");
+
+-- CreateIndex
+CREATE INDEX "pdm_programas_dependenciaId_idx" ON "pdm_programas"("dependenciaId");
+
+-- CreateIndex
+CREATE INDEX "pdm_metas_programaId_idx" ON "pdm_metas"("programaId");
+
+-- CreateIndex
+CREATE INDEX "pdm_meta_seguimientos_metaId_idx" ON "pdm_meta_seguimientos"("metaId");
+
+-- CreateIndex
+CREATE INDEX "estr_cambios_predioId_idx" ON "estr_cambios"("predioId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "sisben_registros_ficha_key" ON "sisben_registros"("ficha");
+
+-- CreateIndex
+CREATE INDEX "sisben_registros_personaId_idx" ON "sisben_registros"("personaId");
+
 -- AddForeignKey
 ALTER TABLE "dependencias" ADD CONSTRAINT "dependencias_padreId_fkey" FOREIGN KEY ("padreId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
@@ -1746,6 +1871,9 @@ ALTER TABLE "psp_pagos" ADD CONSTRAINT "psp_pagos_comprobanteId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "bp_proyectos" ADD CONSTRAINT "bp_proyectos_dependenciaId_fkey" FOREIGN KEY ("dependenciaId") REFERENCES "dependencias"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "bp_proyectos" ADD CONSTRAINT "bp_proyectos_metaId_fkey" FOREIGN KEY ("metaId") REFERENCES "pdm_metas"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "bp_proyecto_hitos" ADD CONSTRAINT "bp_proyecto_hitos_proyectoId_fkey" FOREIGN KEY ("proyectoId") REFERENCES "bp_proyectos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1899,10 +2027,25 @@ ALTER TABLE "urb_solicitudes" ADD CONSTRAINT "urb_solicitudes_respondidoPorId_fk
 
 -- AddForeignKey
 ALTER TABLE "urb_actuaciones" ADD CONSTRAINT "urb_actuaciones_solicitudId_fkey" FOREIGN KEY ("solicitudId") REFERENCES "urb_solicitudes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-┌─────────────────────────────────────────────────────────┐
-│  Update available 7.8.0 -> 7.9.1                        │
-│  Run the following to update                            │
-│    npm i --save-dev prisma@latest                       │
-│    npm i @prisma/client@latest                          │
-└─────────────────────────────────────────────────────────┘
+
+-- AddForeignKey
+ALTER TABLE "pdm_ejes" ADD CONSTRAINT "pdm_ejes_periodoId_fkey" FOREIGN KEY ("periodoId") REFERENCES "pdm_periodos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pdm_programas" ADD CONSTRAINT "pdm_programas_ejeId_fkey" FOREIGN KEY ("ejeId") REFERENCES "pdm_ejes"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pdm_programas" ADD CONSTRAINT "pdm_programas_dependenciaId_fkey" FOREIGN KEY ("dependenciaId") REFERENCES "dependencias"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pdm_metas" ADD CONSTRAINT "pdm_metas_programaId_fkey" FOREIGN KEY ("programaId") REFERENCES "pdm_programas"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "pdm_meta_seguimientos" ADD CONSTRAINT "pdm_meta_seguimientos_metaId_fkey" FOREIGN KEY ("metaId") REFERENCES "pdm_metas"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "estr_cambios" ADD CONSTRAINT "estr_cambios_predioId_fkey" FOREIGN KEY ("predioId") REFERENCES "renta_predios"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "sisben_registros" ADD CONSTRAINT "sisben_registros_personaId_fkey" FOREIGN KEY ("personaId") REFERENCES "cp_terceros"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 

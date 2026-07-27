@@ -90,11 +90,12 @@ model Dependencia {
   padre   Dependencia?  @relation("SubDependencias", fields: [padreId], references: [id])
   hijas   Dependencia[] @relation("SubDependencias")
 
-  cargos    Cargo[]
-  gdSeries  GdSerie[]
-  radicados Radicado[]
-  pqrsds    Pqrsd[]
-  proyectos Proyecto[]
+  cargos       Cargo[]
+  gdSeries     GdSerie[]
+  radicados    Radicado[]
+  pqrsds       Pqrsd[]
+  proyectos    Proyecto[]
+  pdmProgramas PdmPrograma[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -544,6 +545,7 @@ model Tercero {
   rentaEstablecimientos RentaEstablecimiento[]
   procesosCoactivo     CoactivoProceso[]
   solicitudesUrbanisticas SolicitudUrbanistica[]
+  registrosSisben SisbenRegistro[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -883,6 +885,11 @@ model Proyecto {
   fechaInicio      DateTime?
   fechaFinPrevista DateTime?
   creadoPor        String?
+
+  /// Meta del Plan de Desarrollo a la que este proyecto contribuye (opcional — no todo proyecto
+  /// cuelga de una meta formal del PDM en el arranque del tenant).
+  metaId String?
+  meta   PdmMeta? @relation(fields: [metaId], references: [id])
 
   hitos ProyectoHito[]
   cdps  Cdp[] // la ejecución financiera (y, transitivamente, los contratos vía Cdp→Rp→Contrato) cuelga de aquí
@@ -1374,6 +1381,7 @@ model RentaPredio {
 
   liquidaciones RentaLiquidacion[]
   solicitudesUrbanisticas SolicitudUrbanistica[]
+  cambiosEstrato EstratificacionCambio[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2004,4 +2012,159 @@ model SolicitudUrbanisticaActuacion {
 
   @@index([solicitudId])
   @@map("urb_actuaciones")
+}
+
+// ───────────────────── Módulo: PLAN DE DESARROLLO MUNICIPAL (PDM) ─────────────────────
+// Ejes→Programas→Metas (Ley 152/1994) — el marco estratégico del que cuelga TODA la
+// administración, distinto del Banco de Proyectos (que rastrea proyectos individuales de
+// inversión). Una `Proyecto` puede enlazarse OPCIONALMENTE a la `PdmMeta` a la que contribuye —
+// el avance físico del proyecto (ya calculado en `ejecucion.ts`) se muestra como REFERENCIA junto
+// al seguimiento manual de la meta, sin sumarlos automáticamente: dos proyectos que aportan a la
+// misma meta pueden medir en unidades distintas (km de vía vs. número de beneficiarios), así que
+// forzar una suma agregada sería inventar un dato falso. El seguimiento real de la meta (avance
+// acumulado del indicador) lo reporta un humano por vigencia — simplificación declarada, no un
+// motor de agregación automática.
+
+model PdmPeriodo {
+  id             String   @id @default(cuid())
+  nombre         String // "Plan de Desarrollo Municipal 2024-2027"
+  vigenciaInicio Int
+  vigenciaFin    Int
+  activo         Boolean  @default(true)
+
+  ejes PdmEje[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("pdm_periodos")
+}
+
+model PdmEje {
+  id        String     @id @default(cuid())
+  periodoId String
+  periodo   PdmPeriodo @relation(fields: [periodoId], references: [id], onDelete: Cascade)
+  nombre    String
+  orden     Int        @default(0)
+
+  programas PdmPrograma[]
+
+  createdAt DateTime @default(now())
+
+  @@index([periodoId])
+  @@map("pdm_ejes")
+}
+
+model PdmPrograma {
+  id            String       @id @default(cuid())
+  ejeId         String
+  eje           PdmEje       @relation(fields: [ejeId], references: [id], onDelete: Cascade)
+  nombre        String
+  dependenciaId String?
+  dependencia   Dependencia? @relation(fields: [dependenciaId], references: [id])
+
+  metas PdmMeta[]
+
+  createdAt DateTime @default(now())
+
+  @@index([ejeId])
+  @@index([dependenciaId])
+  @@map("pdm_programas")
+}
+
+enum PdmMetaTipo {
+  PRODUCTO
+  RESULTADO
+}
+
+model PdmMeta {
+  id             String      @id @default(cuid())
+  programaId     String
+  programa       PdmPrograma @relation(fields: [programaId], references: [id], onDelete: Cascade)
+  tipo           PdmMetaTipo @default(PRODUCTO)
+  indicador      String
+  unidadMedida   String
+  lineaBase      Decimal     @db.Decimal(14, 2)
+  metaCuatrienio Decimal     @db.Decimal(14, 2)
+
+  proyectos    Proyecto[]
+  seguimientos PdmMetaSeguimiento[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([programaId])
+  @@map("pdm_metas")
+}
+
+/// Histórico insert-only del avance reportado (acumulado), por vigencia.
+model PdmMetaSeguimiento {
+  id             String  @id @default(cuid())
+  metaId         String
+  meta           PdmMeta @relation(fields: [metaId], references: [id], onDelete: Cascade)
+  vigencia       Int
+  valorAcumulado Decimal @db.Decimal(14, 2)
+  observacion    String?
+  reportadoPor   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([metaId])
+  @@map("pdm_meta_seguimientos")
+}
+
+// ───────────────────── Módulo: ESTRATIFICACIÓN SOCIOECONÓMICA ─────────────────────
+// Ley 142/1994. REUSA `RentaPredio.estrato` (ya existente en Rentas) — la estratificación no
+// duplica el registro de predios, solo agrega el flujo de actualización auditada + certificado.
+// Historial insert-only de cambios, exigido porque el estrato afecta tarifas reales (predial,
+// servicios públicos) y un cambio sin motivo/soporte sería indefendible ante un reclamo.
+
+model EstratificacionCambio {
+  id              String      @id @default(cuid())
+  predioId        String
+  predio          RentaPredio @relation(fields: [predioId], references: [id])
+  estratoAnterior Int?
+  estratoNuevo    Int
+  motivo          String
+  fecha           DateTime
+  registradoPor   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([predioId])
+  @@map("estr_cambios")
+}
+
+// ───────────────────── Módulo: SISBEN ─────────────────────
+// Registro LOCAL de la ficha de clasificación socioeconómica (grupo A/B/C/D) por persona,
+// REUSANDO `Tercero` (igual que Rentas/Ordenamiento — no se duplica identidad). Simplificación
+// declarada honestamente: el SISBEN real lo administra el DNP mediante encuesta + cargue
+// periódico de archivos, no una API pública consultable en vivo — este módulo es el registro que
+// la Secretaría de Planeación mantiene localmente a partir de esos cargues, para consulta y
+// certificación, no un espejo en tiempo real del sistema nacional.
+
+enum SisbenGrupo {
+  A
+  B
+  C
+  D
+}
+
+model SisbenRegistro {
+  id            String      @id @default(cuid())
+  personaId     String
+  persona       Tercero     @relation(fields: [personaId], references: [id])
+  ficha         String      @unique
+  puntaje       Decimal?    @db.Decimal(6, 2)
+  grupo         SisbenGrupo
+  fechaEncuesta DateTime
+  vigente       Boolean     @default(true)
+  observaciones String?
+  registradoPor String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([personaId])
+  @@map("sisben_registros")
 }
