@@ -1,5 +1,5 @@
 import { requerirFuncionario, funcionarioPuede } from "@/lib/dal-tenant"
-import { ejecucionFisicaProyecto } from "@/lib/proyectos/ejecucion"
+import { ejecucionProyecto } from "@/lib/proyectos/ejecucion"
 import { PdmAcciones } from "./pdm-acciones"
 
 export const dynamic = "force-dynamic"
@@ -58,13 +58,28 @@ export default async function PdmPage() {
 
   const totalMetas = metasOpciones.length
 
-  // Avance% de cada proyecto vinculado (física, ver ejecucion.ts) — solo referencia cruzada, no se suma a la meta.
-  const proyectoIds = periodos.flatMap((p) => p.ejes.flatMap((e) => e.programas.flatMap((pr) => pr.metas.flatMap((m) => m.proyectos.map((py) => py.id)))))
-  const fisicaPorProyecto = new Map<string, number>()
-  for (const id of proyectoIds) {
-    const fis = await ejecucionFisicaProyecto(db, id)
-    fisicaPorProyecto.set(id, fis.porcentaje)
+  // Un programa puede depender de VARIAS secretarías: distintos proyectos (de distintas
+  // dependencias) pueden apuntar a metas del mismo programa. Se agrega, por programa, la lista
+  // ÚNICA de proyectos contribuyentes (across todas sus metas) con su secretaría responsable,
+  // contribución (física/financiera, ver ejecucion.ts) y los contratos reales que lo financian
+  // (Proyecto → Cdp → Rp → Contrato → Tercero=contratista — misma cadena que ejecucionFinanciera).
+  const proyectoIds = [...new Set(
+    periodos.flatMap((p) => p.ejes.flatMap((e) => e.programas.flatMap((pr) => pr.metas.flatMap((m) => m.proyectos.map((py) => py.id))))),
+  )]
+  const proyectosDetalle = await db.proyecto.findMany({
+    where: { id: { in: proyectoIds } },
+    include: {
+      dependencia: true,
+      cdps: { include: { rps: { include: { contratos: { include: { tercero: true } } } } } },
+    },
+  })
+  const detallePorProyecto = new Map<string, (typeof proyectosDetalle)[number]>()
+  const ejecucionPorProyecto = new Map<string, Awaited<ReturnType<typeof ejecucionProyecto>>>()
+  for (const py of proyectosDetalle) {
+    detallePorProyecto.set(py.id, py)
+    ejecucionPorProyecto.set(py.id, await ejecucionProyecto(db, py.id, py.valorTotal ? Number(py.valorTotal) : null))
   }
+  const fisicaPorProyecto = new Map(proyectosDetalle.map((py) => [py.id, ejecucionPorProyecto.get(py.id)!.fisica.porcentaje]))
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
@@ -102,11 +117,15 @@ export default async function PdmPage() {
               {periodo.ejes.map((eje) => (
                 <div key={eje.id} className="border-l-2 border-indigo-200 pl-4">
                   <h3 className="text-sm font-semibold text-indigo-700">{eje.nombre}</h3>
-                  {eje.programas.map((programa) => (
+                  {eje.programas.map((programa) => {
+                    const proyectosPrograma = [...new Map(
+                      programa.metas.flatMap((m) => m.proyectos).map((py) => [py.id, py]),
+                    ).values()]
+                    return (
                     <div key={programa.id} className="mt-2 border-l-2 border-slate-100 pl-4">
                       <div className="text-sm font-medium text-slate-700">
                         {programa.nombre}
-                        {programa.dependencia && <span className="ml-2 text-xs text-slate-400">{programa.dependencia.codigo}</span>}
+                        {programa.dependencia && <span className="ml-2 text-xs text-slate-400">{programa.dependencia.codigo} (líder)</span>}
                       </div>
                       {programa.metas.length === 0 ? (
                         <p className="text-xs text-slate-400">Sin metas aún.</p>
@@ -138,8 +157,48 @@ export default async function PdmPage() {
                           })}
                         </ul>
                       )}
+
+                      {proyectosPrograma.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Proyectos y contratos (todas las secretarías)</p>
+                          <ul className="mt-1 space-y-2">
+                            {proyectosPrograma.map((py) => {
+                              const detalle = detallePorProyecto.get(py.id)
+                              const ej = ejecucionPorProyecto.get(py.id)
+                              const contratos = detalle?.cdps.flatMap((cdp) => cdp.rps.flatMap((rp) => rp.contratos)) ?? []
+                              return (
+                                <li key={py.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="text-slate-700">
+                                      <span className="font-mono text-slate-500">{py.codigo}</span> {py.nombre}
+                                      {detalle && <span className="ml-2 rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-600">{detalle.dependencia.codigo}</span>}
+                                    </span>
+                                    {ej && (
+                                      <span className="font-mono text-slate-500">
+                                        financiera {ej.financiera.porcentaje}% · física {ej.fisica.porcentaje}%
+                                      </span>
+                                    )}
+                                  </div>
+                                  {contratos.length === 0 ? (
+                                    <p className="mt-1 text-slate-400">Sin contratos asociados aún.</p>
+                                  ) : (
+                                    <ul className="mt-1 space-y-0.5">
+                                      {contratos.map((c) => (
+                                        <li key={c.id} className="text-slate-500">
+                                          <span className="font-mono">{c.numero}</span> · contratista: {c.tercero.razonSocial} ({c.tercero.documento}) · ${Number(c.valorContrato).toLocaleString()} · {c.estado}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ))}
             </div>

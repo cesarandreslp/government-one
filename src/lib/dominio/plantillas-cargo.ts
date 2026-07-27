@@ -127,22 +127,94 @@ const ALCALDIA: PlantillaEntidad = {
       ],
     },
     {
+      // Estructura real de una Secretaría de Planeación grande (corrección del usuario,
+      // 2026-07-27): a diferencia de Hacienda/TH (cargos diferenciados pero FLAT en una sola
+      // dependencia), Planeación se modela con sub-dependencias reales — cada oficina/área tiene
+      // su propio código y su propio `modulos` (Capa 2), no todas comparten el array de PLAN.
       codigo: "PLAN", nombre: "Secretaría de Planeación", tipo: "SECRETARIA", padreCodigo: "DESP",
       cargos: [
         { nombre: "Secretario de Planeación", esJefatura: true, empleoCodigo: "020-01",
-          grants: { ventanilla_unica: ["responder"], ordenamiento_territorial: ["consultar"], pdm: ["consultar"], estratificacion: ["consultar"], sisben: ["consultar"] } },
-        { nombre: "Profesional Especializado — Banco de Proyectos y Plan de Desarrollo", empleoCodigo: "222-02",
-          grants: { banco_proyectos: ["administrar", "reportar_avance", "consultar"], pdm: ["administrar", "reportar_avance", "consultar"] },
-          funciones: "Liderar el banco de proyectos y el seguimiento financiero y físico al cumplimiento del Plan de Desarrollo de todas las dependencias." },
-        { nombre: "Profesional Universitario — Seguimiento PDM y Contratación", empleoCodigo: "219-02",
-          grants: { contratacion: ["elaborar"], pdm: ["reportar_avance", "consultar"] },
-          funciones: "Seguimiento al cumplimiento del componente de Planeación en el Plan de Desarrollo; apoyo a la contratación de la dependencia y al alumbrado público." },
+          grants: { ventanilla_unica: ["responder"], ordenamiento_territorial: ["consultar"], pdm: ["consultar"], estratificacion: ["consultar"], sisben: ["consultar"], banco_proyectos: ["consultar"] } },
+      ],
+    },
+    {
+      codigo: "PLAN-SECEJEC", nombre: "Secretaría del Secretario de Planeación", tipo: "OFICINA", padreCodigo: "PLAN",
+      cargos: [
+        { nombre: "Secretario Ejecutivo — Despacho de Planeación", empleoCodigo: "425-01",
+          funciones: "Agenda, correspondencia y apoyo administrativo al despacho del Secretario de Planeación." },
+      ],
+    },
+    {
+      codigo: "PLAN-VU", nombre: "Ventanilla Única — Secretaría de Planeación", tipo: "OFICINA", padreCodigo: "PLAN",
+      cargos: [
+        { nombre: "Auxiliar de Ventanilla — Planeación", empleoCodigo: "407-01", grants: { ventanilla_unica: ["radicar"] },
+          funciones: "Radicar trámites, solicitudes y PQRSD dirigidos a la Secretaría de Planeación." },
+      ],
+    },
+    {
+      codigo: "PLAN-CONT", nombre: "Contratación — Planeación", tipo: "OFICINA", padreCodigo: "PLAN",
+      cargos: [
+        { nombre: "Profesional de Contratación — Planeación", empleoCodigo: "219-02", grants: { contratacion: ["elaborar"] },
+          funciones: "Estructurar y hacer seguimiento a los procesos contractuales de la Secretaría de Planeación." },
+      ],
+    },
+    {
+      codigo: "PLAN-ALUM", nombre: "Alumbrado Público", tipo: "OFICINA", padreCodigo: "PLAN",
+      cargos: [
+        { nombre: "Profesional de Alumbrado Público", empleoCodigo: "222-01",
+          funciones: "Administrar y supervisar el servicio de alumbrado público municipal (contrato de concesión u operación, expansión y mantenimiento)." },
+      ],
+    },
+    {
+      codigo: "PLAN-ESTRAT", nombre: "Estratificación", tipo: "OFICINA", padreCodigo: "PLAN",
+      cargos: [
         { nombre: "Técnico Administrativo — Estratificación y SISBEN", empleoCodigo: "367-02",
           grants: { estratificacion: ["consultar", "actualizar"], sisben: ["consultar", "administrar"] },
           funciones: "Actualizar y hacer seguimiento a la estratificación socioeconómica del municipio; administrar el registro local de fichas SISBEN a partir de los cargues del DNP." },
+      ],
+    },
+    {
+      codigo: "PLAN-COME", nombre: "COME — Comité Municipal de Estadística", tipo: "OFICINA", padreCodigo: "PLAN",
+      cargos: [
+        { nombre: "Profesional COME", empleoCodigo: "219-02",
+          funciones: "Coordinar el Comité Municipal de Estadística (COME), fuente oficial de información estadística del municipio." },
+      ],
+    },
+    {
+      codigo: "PLAN-BP", nombre: "Banco de Proyectos", tipo: "OFICINA", padreCodigo: "PLAN",
+      cargos: [
+        { nombre: "Profesional Especializado — Banco de Proyectos y Plan de Desarrollo", empleoCodigo: "222-02",
+          grants: { banco_proyectos: ["administrar", "reportar_avance", "consultar"], pdm: ["administrar", "reportar_avance", "consultar"] },
+          funciones: "Liderar el banco de proyectos y el seguimiento financiero y físico al cumplimiento del Plan de Desarrollo de todas las dependencias." },
+      ],
+    },
+    {
+      codigo: "PLAN-MIPG", nombre: "MIPG — Calidad", tipo: "OFICINA", padreCodigo: "PLAN",
+      cargos: [
+        { nombre: "Profesional MIPG", empleoCodigo: "222-01",
+          funciones: "Administrar el Modelo Integrado de Planeación y Gestión (MIPG) y reportar el FURAG (Formulario Único de Reporte de Avance de la Gestión) ante el DAFP." },
+      ],
+    },
+    {
+      codigo: "PLAN-ORDFIS", nombre: "Ordenamiento Físico y Territorial", tipo: "OFICINA", padreCodigo: "PLAN",
+      cargos: [
         { nombre: "Técnico Operativo — Ordenamiento Físico y Territorial", empleoCodigo: "314-02",
           grants: { ventanilla_unica: ["responder"], ordenamiento_territorial: ["consultar", "tramitar"] },
           funciones: "Atender trámites y consultas de ordenamiento territorial: línea de paramento, uso de suelo, licencias urbanísticas y demás asuntos del POT vigente." },
+      ],
+    },
+    {
+      codigo: "PLAN-AVISOS", nombre: "Avisos y Tableros", tipo: "OFICINA", padreCodigo: "PLAN-ORDFIS",
+      cargos: [
+        { nombre: "Técnico Operativo — Avisos y Tableros", empleoCodigo: "314-01", grants: { ventanilla_unica: ["responder"] },
+          funciones: "Trámite de permisos de publicidad exterior visual: avisos, vallas y tableros (Ley 140/1994)." },
+      ],
+    },
+    {
+      codigo: "PLAN-ESPACIO", nombre: "Espacio Público", tipo: "OFICINA", padreCodigo: "PLAN-ORDFIS",
+      cargos: [
+        { nombre: "Técnico Operativo — Espacio Público", empleoCodigo: "314-01", grants: { ventanilla_unica: ["responder"] },
+          funciones: "Administración, control y recuperación del espacio público municipal." },
       ],
     },
     {
