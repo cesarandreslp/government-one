@@ -42,7 +42,11 @@ export const requerirFuncionario = cache(async (): Promise<ContextoFuncionario> 
   if (!ctx) redirect("/ingresar")
 
   const sesion = await leerSesionTenant()
-  if (!sesion || sesion.tenantId !== ctx.tenant.id) redirect("/ingresar")
+  if (!sesion) redirect("/ingresar")
+  // Cookie válidamente firmada pero de OTRO tenant (ej. quedó de una sesión anterior en otro
+  // host/tenant) — el proxy solo valida la firma, así que redirigir directo a "/ingresar" haría
+  // loop (el proxy la vería "válida" y rebotaría de vuelta a /admin). Hay que limpiarla primero.
+  if (sesion.tenantId !== ctx.tenant.id) redirect("/salir-forzado")
 
   return { ...ctx, sesion }
 })
