@@ -174,10 +174,12 @@ const ALCALDIA: PlantillaEntidad = {
       ],
     },
     {
-      codigo: "PLAN-COME", nombre: "COME — Comité Municipal de Estadística", tipo: "OFICINA", padreCodigo: "PLAN",
+      // COTE (no "COME"): el nombre municipal-específico no aplica — la plataforma sirve
+      // alcaldías, personerías y otros tipos de entidad territorial, no solo municipios.
+      codigo: "PLAN-COME", nombre: "COTE — Comité Territorial de Estadística", tipo: "OFICINA", padreCodigo: "PLAN",
       cargos: [
-        { nombre: "Profesional COME", empleoCodigo: "219-02",
-          funciones: "Coordinar el Comité Municipal de Estadística (COME), fuente oficial de información estadística del municipio." },
+        { nombre: "Profesional COTE", empleoCodigo: "219-02",
+          funciones: "Coordinar el Comité Territorial de Estadística (COTE), fuente oficial de información estadística de la entidad." },
       ],
     },
     {
