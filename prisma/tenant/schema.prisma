@@ -547,6 +547,7 @@ model Tercero {
   solicitudesUrbanisticas SolicitudUrbanistica[]
   registrosSisben SisbenRegistro[]
   jacDignatarios JacDignatario[]
+  ahiEntregas AhiEntrega[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2292,4 +2293,79 @@ model EmergenciaAyudaGrd {
 
   @@index([emergenciaId])
   @@map("grd_emergencia_ayudas")
+}
+
+// ───────────────────── Módulo: CONVIVENCIA Y SEGURIDAD CIUDADANA ─────────────────────
+// Seguimiento al Consejo de Seguridad y al PISCC: registro de sesiones (actas) + los acuerdos que
+// salen de cada una, con su estado de cumplimiento. No es un "expediente" (no hay parte procesada,
+// es coordinación interinstitucional) — por eso el acuerdo es mutable (se marca cumplido), a
+// diferencia de las ayudas insert-only de otros módulos.
+
+model SesionConsejoSeguridad {
+  id            String   @id @default(cuid())
+  fecha         DateTime
+  tema          String
+  resumen       String?
+  registradoPor String?
+
+  acuerdos AcuerdoConsejoSeguridad[]
+
+  createdAt DateTime @default(now())
+
+  @@index([fecha])
+  @@map("conv_sesiones")
+}
+
+enum EstadoAcuerdoConvivencia {
+  PENDIENTE
+  CUMPLIDO
+}
+
+model AcuerdoConsejoSeguridad {
+  id          String                   @id @default(cuid())
+  sesionId    String
+  sesion      SesionConsejoSeguridad   @relation(fields: [sesionId], references: [id], onDelete: Cascade)
+  descripcion String
+  responsable String
+  plazo       DateTime?
+  estado      EstadoAcuerdoConvivencia @default(PENDIENTE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sesionId])
+  @@map("conv_acuerdos")
+}
+
+// ───────────────────── Módulo: ENLACE DE VÍCTIMAS ─────────────────────
+// El RUV (Registro Único de Víctimas) es nacional (Unidad para las Víctimas) — no se construye
+// acá. Lo municipal real: Ayuda Humanitaria Inmediata (AHI) entregada ante un hecho victimizante
+// reciente. SÍ es nominal (a diferencia de Gestión del Riesgo): es una prestación individual con
+// responsabilidad de reporte por persona. REUSA `Tercero` (misma identidad externa que
+// Rentas/SISBEN/JAC). Insert-only — cada entrega es un registro de auditoría.
+
+enum HechoVictimizante {
+  DESPLAZAMIENTO
+  AMENAZA
+  HOMICIDIO
+  DESAPARICION_FORZADA
+  MINA_ANTIPERSONAL
+  OTRO
+}
+
+model AhiEntrega {
+  id                String            @id @default(cuid())
+  personaId         String
+  persona           Tercero           @relation(fields: [personaId], references: [id])
+  hechoVictimizante HechoVictimizante
+  fechaHecho        DateTime
+  fechaEntrega      DateTime
+  tipoAyuda         String
+  descripcion       String?
+  registradoPor     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([personaId])
+  @@map("vict_ahi_entregas")
 }

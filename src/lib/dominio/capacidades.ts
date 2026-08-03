@@ -30,6 +30,8 @@ export const CAPACIDADES_POR_MODULO = {
   sisben: ["consultar", "administrar"],
   participacion_ciudadana: ["consultar", "administrar"],
   gestion_riesgo: ["consultar", "administrar"],
+  convivencia_seguridad: ["consultar", "administrar"],
+  enlace_victimas: ["consultar", "administrar"],
 } as const
 
 export type ModuloId = keyof typeof CAPACIDADES_POR_MODULO

@@ -1453,3 +1453,33 @@ una persona nueva (María Fernanda Ospina), se registró como Presidenta (perío
 2029-06-30) y el certificado la mostró correctamente. Se registró la emergencia `EMG-2026-001`
 (inundación, Barrio Ribera del Río, 12 familias/45 personas), se le agregó una ayuda (12 mercados)
 y se cerró — los contadores y estados se actualizaron en cada paso.
+
+## Progreso — Convivencia y Seguridad Ciudadana + Enlace de Víctimas — cierra Gobierno (2026-08-03)
+
+Cierra las 2 sub-dependencias de Gobierno que quedaban sin decisión. Con esto, las 6
+sub-dependencias de Gobierno quedan resueltas: 4 con módulo propio (Participación Ciudadana,
+Gestión del Riesgo, y estas 2), 2 solo-PQRSD por decisión ya tomada (Comisaría de Familia,
+Inspección de Policía — GEFA externo).
+
+**Convivencia y Seguridad Ciudadana** (`convivencia_seguridad`) — seguimiento al Consejo de
+Seguridad y al PISCC: `SesionConsejoSeguridad` (acta: fecha, tema, resumen) + `AcuerdoConsejoSeguridad`
+(descripción, responsable, plazo, estado PENDIENTE/CUMPLIDO). A diferencia de las ayudas
+insert-only de otros módulos, el acuerdo es MUTABLE (se marca cumplido) — no es un expediente con
+partes, es coordinación interinstitucional.
+
+**Enlace de Víctimas** (`enlace_victimas`) — Ayuda Humanitaria Inmediata (AHI, Ley 1448/2011):
+`AhiEntrega` (persona —REUSA `Tercero`—, hecho victimizante, fecha del hecho, fecha de entrega,
+tipo de ayuda), insert-only. El RUV es nacional (Unidad para las Víctimas), no se construye acá.
+A diferencia de Gestión del Riesgo, esta SÍ es nominal (por persona) — es una prestación
+individual con responsabilidad de reporte, no una cifra agregada de afectación.
+
+**Checklist del módulo contratable nuevo, ya aprendido, seguido sin sorpresas:** migrar schema →
+capacidad → `modulos.ts` → grant en plantilla + resembrar → `Dependencia.modulos` (Capa 2) →
+`Tenant.modulosContratados` (Capa 1, meta-DB).
+
+**Verificado en vivo end-to-end** contra el tenant demo real: sesión "Seguimiento hurtos zona
+centro" (2026-08-01) con acuerdo "Aumentar patrullaje nocturno" asignado al Comandante de Policía
+→ marcado CUMPLIDO. AHI para María Fernanda Ospina (desplazamiento, hecho 2026-07-28, entrega
+2026-07-29, alojamiento transitorio + mercado) registrada correctamente, reusando el `Tercero` ya
+creado en Participación Ciudadana — confirma que la identidad externa se comparte entre módulos
+como está diseñado.

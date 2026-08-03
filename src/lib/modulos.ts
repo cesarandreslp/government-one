@@ -49,6 +49,8 @@ export const MODULOS: Modulo[] = [
   { id: "sisben", nombre: "SISBEN", categoria: "Planeación", ruta: "/admin/sisben", descripcion: "Registro local de clasificación socioeconómica (ficha, puntaje, grupo) y certificado." },
   { id: "participacion_ciudadana", nombre: "Participación Ciudadana", categoria: "Gobierno", ruta: "/admin/participacion-ciudadana", descripcion: "Registro de Juntas de Acción Comunal y sus dignatarios (Ley 743/2002)." },
   { id: "gestion_riesgo", nombre: "Gestión del Riesgo de Desastres", categoria: "Gobierno", ruta: "/admin/gestion-riesgo", descripcion: "CMGRD: registro de emergencias atendidas y ayudas entregadas (Ley 1523/2012)." },
+  { id: "convivencia_seguridad", nombre: "Convivencia y Seguridad Ciudadana", categoria: "Gobierno", ruta: "/admin/convivencia-seguridad", descripcion: "Sesiones del Consejo de Seguridad y seguimiento a sus acuerdos (PISCC)." },
+  { id: "enlace_victimas", nombre: "Enlace de Víctimas", categoria: "Gobierno", ruta: "/admin/enlace-victimas", descripcion: "Ayuda Humanitaria Inmediata a víctimas del conflicto armado (Ley 1448/2011)." },
 ]
 
 const POR_ID = new Map(MODULOS.map((m) => [m.id, m]))

@@ -253,7 +253,7 @@ const ALCALDIA: PlantillaEntidad = {
     {
       codigo: "GOB-CONVIV", nombre: "Convivencia y Seguridad Ciudadana", tipo: "OFICINA", padreCodigo: "GOB",
       cargos: [
-        { nombre: "Profesional de Convivencia y Seguridad Ciudadana", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"] },
+        { nombre: "Profesional de Convivencia y Seguridad Ciudadana", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"], convivencia_seguridad: ["consultar", "administrar"] },
           funciones: "Articular con la Fuerza Pública el orden público municipal y hacer seguimiento al Plan Integral de Seguridad y Convivencia Ciudadana (PISCC)." },
       ],
     },
@@ -267,7 +267,7 @@ const ALCALDIA: PlantillaEntidad = {
     {
       codigo: "GOB-VICT", nombre: "Enlace de Víctimas", tipo: "OFICINA", padreCodigo: "GOB",
       cargos: [
-        { nombre: "Profesional Enlace de Víctimas", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"] },
+        { nombre: "Profesional Enlace de Víctimas", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"], enlace_victimas: ["consultar", "administrar"] },
           funciones: "Atender, asistir y hacer seguimiento a la reparación integral de víctimas del conflicto armado (Ley 1448/2011) y al Plan de Acción Territorial (PAT)." },
       ],
     },
