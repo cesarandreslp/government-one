@@ -227,6 +227,54 @@ const ALCALDIA: PlantillaEntidad = {
         { nombre: "Secretario de Gobierno", esJefatura: true, empleoCodigo: "020-01", grants: { contratacion: ["elaborar"], ventanilla_unica: ["responder"] } },
       ],
     },
+    // Sub-dependencias de Gobierno: solo estructura + conexión a Ventanilla Única (routing de
+    // PQRSD) por ahora — sin módulo transaccional propio todavía (mismo patrón que Alumbrado
+    // Público/Espacio Público de Planeación antes de tener su turno). Investigado (no descrito
+    // por el usuario): son las áreas casi universales de una Secretaría de Gobierno municipal en
+    // Colombia (Ley 1801/2016, Ley 1098/2006 + Ley 2126/2021, Ley 1523/2012, Ley 1448/2011,
+    // Ley 743/2002) — profundizar en funciones/módulo cuando le llegue el turno a cada una.
+    {
+      codigo: "GOB-COMFAM", nombre: "Comisaría de Familia", tipo: "OFICINA", padreCodigo: "GOB",
+      cargos: [
+        { nombre: "Comisario de Familia", empleoCodigo: "222-02", grants: { ventanilla_unica: ["responder"] },
+          funciones: "Prevenir, proteger, restablecer y reparar los derechos de miembros de la familia víctimas de violencia intrafamiliar y de niños, niñas y adolescentes en riesgo (Ley 294/1996, Ley 1098/2006, Ley 2126/2021)." },
+      ],
+    },
+    {
+      codigo: "GOB-INSPOL", nombre: "Inspección de Policía", tipo: "OFICINA", padreCodigo: "GOB",
+      cargos: [
+        { nombre: "Inspector de Policía", empleoCodigo: "222-02", grants: { ventanilla_unica: ["responder"] },
+          funciones: "Conocer querellas de policía, imponer medidas correctivas y tramitar comparendos del Código Nacional de Policía y Convivencia (Ley 1801/2016)." },
+      ],
+    },
+    {
+      codigo: "GOB-CONVIV", nombre: "Convivencia y Seguridad Ciudadana", tipo: "OFICINA", padreCodigo: "GOB",
+      cargos: [
+        { nombre: "Profesional de Convivencia y Seguridad Ciudadana", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"] },
+          funciones: "Articular con la Fuerza Pública el orden público municipal y hacer seguimiento al Plan Integral de Seguridad y Convivencia Ciudadana (PISCC)." },
+      ],
+    },
+    {
+      codigo: "GOB-PART", nombre: "Participación Ciudadana y Acción Comunal", tipo: "OFICINA", padreCodigo: "GOB",
+      cargos: [
+        { nombre: "Profesional de Participación Ciudadana", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"] },
+          funciones: "Fomentar la participación comunitaria y acompañar a las Juntas de Acción Comunal (Ley 743/2002)." },
+      ],
+    },
+    {
+      codigo: "GOB-VICT", nombre: "Enlace de Víctimas", tipo: "OFICINA", padreCodigo: "GOB",
+      cargos: [
+        { nombre: "Profesional Enlace de Víctimas", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"] },
+          funciones: "Atender, asistir y hacer seguimiento a la reparación integral de víctimas del conflicto armado (Ley 1448/2011) y al Plan de Acción Territorial (PAT)." },
+      ],
+    },
+    {
+      codigo: "GOB-GRD", nombre: "Gestión del Riesgo de Desastres", tipo: "OFICINA", padreCodigo: "GOB",
+      cargos: [
+        { nombre: "Profesional de Gestión del Riesgo", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"] },
+          funciones: "Coordinar el Consejo Municipal de Gestión del Riesgo de Desastres (CMGRD): conocimiento y reducción del riesgo, y manejo de emergencias/desastres (Ley 1523/2012)." },
+      ],
+    },
     {
       codigo: "BS", nombre: "Secretaría de Bienestar Social", tipo: "SECRETARIA", padreCodigo: "DESP",
       cargos: [

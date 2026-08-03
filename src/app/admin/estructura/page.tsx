@@ -1,10 +1,11 @@
 import { requerirRolTenant } from "@/lib/dal-tenant"
 import { capacidadesEfectivas, quienEjerce } from "@/lib/dominio/acceso"
 import { hayPlantilla } from "@/lib/dominio/plantillas-cargo"
-import type { Grants } from "@/lib/dominio/capacidades"
+import { CAPACIDADES_POR_MODULO, type Grants } from "@/lib/dominio/capacidades"
 import { MODULOS, moduloDisponible } from "@/lib/modulos"
 import { EstructuraAcciones } from "./estructura-acciones"
 import { ModulosDependencia } from "./modulos-dependencia"
+import { GrantsCargo } from "./grants-cargo"
 
 export const dynamic = "force-dynamic"
 
@@ -104,6 +105,10 @@ export default async function EstructuraPage() {
                 <ul className="mt-3 space-y-2">
                   {d.cargos.map((c) => {
                     const ej = ejercientes.get(c.id)
+                    const modulosAsignados = Array.isArray(d.modulos) ? (d.modulos as string[]) : []
+                    const modulosConCapacidades = modulosAsignados
+                      .filter((m) => m in CAPACIDADES_POR_MODULO)
+                      .map((m) => ({ id: m, capacidades: [...CAPACIDADES_POR_MODULO[m as keyof typeof CAPACIDADES_POR_MODULO]] }))
                     return (
                       <li key={c.id} className="border-l-2 border-slate-100 pl-3 text-sm">
                         <div className="flex flex-wrap items-center gap-2">
@@ -123,6 +128,7 @@ export default async function EstructuraPage() {
                             reporta a: {c.jefeInmediato.dependencia.codigo} · {c.jefeInmediato.nombre}
                           </p>
                         )}
+                        <GrantsCargo cargoId={c.id} actuales={(c.grants ?? {}) as Grants} modulos={modulosConCapacidades} />
                       </li>
                     )
                   })}

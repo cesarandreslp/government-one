@@ -1354,3 +1354,58 @@ GOB); de los 3 proyectos del tenant, ve solo 1 (el de PLAN) en modo particular, 
 Paula en modo global — la discriminación funciona. `scripts/reaplicar-plantilla.ts` (nuevo, reusa
 `aplicarPlantilla` que ya es idempotente) propagó `esServicioCompartido=true` al tenant demo ya
 sembrado sin migración de schema (el campo ya existía).
+
+## Progreso — Secretaría de Gobierno: estructura + Ventanilla Única (sin módulo propio) (2026-08-03)
+
+El usuario pidió arrancar Gobierno (siguiente secretaría en la cola, ver auditoría anterior:
+solo tenía el Secretario, sin sub-estructura) pero **sin profundizar todavía** — solo crear las
+dependencias reales y conectarlas a Ventanilla Única, porque él mismo no conoce el detalle de cada
+área. Investigado (no descrito por el usuario esta vez, sin comparativo PDF): son las 6 áreas casi
+universales de una Secretaría de Gobierno municipal colombiana — Comisaría de Familia (Ley
+294/1996, Ley 1098/2006, Ley 2126/2021), Inspección de Policía (Ley 1801/2016), Convivencia y
+Seguridad Ciudadana (PISCC), Participación Ciudadana y Acción Comunal (Ley 743/2002), Enlace de
+Víctimas (Ley 1448/2011), Gestión del Riesgo de Desastres/CMGRD (Ley 1523/2012).
+
+Cada una: un cargo, `funciones` descriptiva con el fundamento legal, y **únicamente**
+`grants: { ventanilla_unica: ["responder"] }` — ningún módulo/capacidad propia todavía (mismo
+patrón que Alumbrado Público/Espacio Público de Planeación antes de su turno).
+
+**Hueco encontrado al sembrar:** `aplicarPlantilla` fija `esServicioCompartido`/`nombre`/`tipo`/
+`padreId` pero NUNCA toca `Dependencia.modulos` (Capa 2) — una dependencia nueva nace con
+`modulos=[]`, así que el grant `ventanilla_unica:responder` del cargo queda inerte (la Capa 2 lo
+bloquea) hasta que alguien se lo asigne a mano en `/admin/estructura`. Se completó a mano (mismo
+efecto que la UI) para las 6 nuevas: `modulos=["ventanilla_unica"]`. **Pendiente recordar:** cada
+plantilla nueva con conexión a un módulo base necesita este segundo paso — `aplicarPlantilla` NO lo
+hace solo.
+
+**Verificado contra el tenant demo real** (no mock): las 6 dependencias (`GOB-COMFAM`,
+`GOB-INSPOL`, `GOB-CONVIV`, `GOB-PART`, `GOB-VICT`, `GOB-GRD`) quedaron sembradas bajo `GOB`, cada
+una con su cargo y `modulos=["ventanilla_unica"]` confirmado por query directa.
+
+**Siguiente:** cuando le toque el turno a Gobierno, profundizar una por una (empezando
+probablemente por Comisaría de Familia o Inspección de Policía, las de mayor volumen real) —
+requiere investigar cada proceso o que el usuario traiga su propio comparativo.
+
+## Progreso — Editor de capacidades (Capa 3) por cargo en `/admin/estructura` (2026-08-03)
+
+**Hueco cerrado:** el usuario preguntó si había forma de crear una dependencia que no estuviera
+ya en la plantilla — sí (`crearDependenciaAction`/`crearCargoAction`/`asignarModulosDependenciaAction`,
+todo ya en vivo), pero un cargo creado por esa vía nacía con `grants: {}` y **no había ninguna
+acción en la UI para asignarle capacidades después** — solo `aplicarPlantilla` (código +
+resembrar) escribía `Cargo.grants`. El admin del tenant no podía cerrar el ciclo solo.
+
+**Cerrado:** `asignarGrantsCargoAction` (`src/app/admin/estructura/actions.ts`) — checkboxes
+`"modulo:capacidad"` validados contra `esCapacidadValida` (catálogo `CAPACIDADES_POR_MODULO`),
+mismo patrón que `asignarModulosDependenciaAction`. Componente `GrantsCargo`
+(`src/app/admin/estructura/grants-cargo.tsx`), mirror exacto de `ModulosDependencia`. Solo ofrece
+capacidades de los módulos YA asignados a la dependencia (Capa 2) — si la dependencia no tiene
+módulos, muestra "asígnalos arriba primero" en vez de una lista vacía inútil.
+
+**Verificado en vivo de verdad** (no solo tsc): se creó `.claude/launch.json` (dev server local,
+puerto 3000; el repo ya tenía `DEV_TENANT_SLUG=demo` en `.env` para rutear tenant sin subdominio
+real) y se entró como `admin.demo@gov1.test` (contraseña de prueba fijada por script,
+[[feedback-passwords-test-fase-construccion]]). Se marcó `ventanilla_unica:radicar` en el cargo
+Comisario de Familia (que solo tenía `responder`), se guardó, el chip apareció de inmediato y
+`Cargo.grants` en la BD quedó `{"ventanilla_unica":["radicar","responder"]}` — confirmado por
+query directa. Revertido a `{"ventanilla_unica":["responder"]}` para no dejar el dato de prueba
+sobre la estructura real de Gobierno.

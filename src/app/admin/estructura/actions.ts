@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { requerirRolTenant } from "@/lib/dal-tenant"
 import { aplicarPlantilla, hayPlantilla } from "@/lib/dominio/plantillas-cargo"
 import { sembrarEmpleosDafp } from "@/lib/dominio/empleos-dafp"
+import { esCapacidadValida, type Grants } from "@/lib/dominio/capacidades"
 
 // Acciones de administración de la ESTRUCTURA ORGANIZACIONAL del tenant. Todas gateadas por
 // rol de IDENTIDAD del tenant (ADMIN/SUPER_ADMIN) — administrar la estructura NO es una
@@ -76,6 +77,29 @@ export async function crearCargoAction(_prev: AccionState, formData: FormData): 
     return { ok: true, mensaje: `Cargo "${nombre}" creado.` }
   } catch {
     return { ok: false, error: "Error al crear el cargo (¿dependencia/empleo/jefe inmediato válidos?)." }
+  }
+}
+
+/** Asigna las CAPACIDADES (Capa 3) de un cargo — checkboxes "modulo:capacidad", validadas contra
+ *  el catálogo. Solo tiene efecto real para módulos ya asignados a la dependencia (Capa 2). */
+export async function asignarGrantsCargoAction(_prev: AccionState, formData: FormData): Promise<AccionState> {
+  const { db } = await requerirRolTenant(ADMINS)
+  const cargoId = String(formData.get("cargoId") ?? "").trim()
+  if (!cargoId) return { ok: false, error: "Falta el cargo." }
+
+  const grants: Grants = {}
+  for (const par of formData.getAll("grants").map(String)) {
+    const [modulo, capacidad] = par.split(":")
+    if (!modulo || !capacidad || !esCapacidadValida(modulo, capacidad)) continue
+    grants[modulo] = [...(grants[modulo] ?? []), capacidad]
+  }
+
+  try {
+    await db.cargo.update({ where: { id: cargoId }, data: { grants } })
+    revalidatePath("/admin/estructura")
+    return { ok: true, mensaje: "Capacidades del cargo actualizadas." }
+  } catch {
+    return { ok: false, error: "Error al asignar capacidades al cargo." }
   }
 }
 
