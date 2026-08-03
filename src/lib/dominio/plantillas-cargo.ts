@@ -260,7 +260,7 @@ const ALCALDIA: PlantillaEntidad = {
     {
       codigo: "GOB-PART", nombre: "Participación Ciudadana y Acción Comunal", tipo: "OFICINA", padreCodigo: "GOB",
       cargos: [
-        { nombre: "Profesional de Participación Ciudadana", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"] },
+        { nombre: "Profesional de Participación Ciudadana", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"], participacion_ciudadana: ["consultar", "administrar"] },
           funciones: "Fomentar la participación comunitaria y acompañar a las Juntas de Acción Comunal (Ley 743/2002)." },
       ],
     },
@@ -274,7 +274,7 @@ const ALCALDIA: PlantillaEntidad = {
     {
       codigo: "GOB-GRD", nombre: "Gestión del Riesgo de Desastres", tipo: "OFICINA", padreCodigo: "GOB",
       cargos: [
-        { nombre: "Profesional de Gestión del Riesgo", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"] },
+        { nombre: "Profesional de Gestión del Riesgo", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"], gestion_riesgo: ["consultar", "administrar"] },
           funciones: "Coordinar el Consejo Municipal de Gestión del Riesgo de Desastres (CMGRD): conocimiento y reducción del riesgo, y manejo de emergencias/desastres (Ley 1523/2012)." },
       ],
     },

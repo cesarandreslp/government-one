@@ -28,6 +28,8 @@ export const CAPACIDADES_POR_MODULO = {
   pdm: ["consultar", "administrar", "reportar_avance"],
   estratificacion: ["consultar", "actualizar"],
   sisben: ["consultar", "administrar"],
+  participacion_ciudadana: ["consultar", "administrar"],
+  gestion_riesgo: ["consultar", "administrar"],
 } as const
 
 export type ModuloId = keyof typeof CAPACIDADES_POR_MODULO

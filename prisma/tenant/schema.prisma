@@ -546,6 +546,7 @@ model Tercero {
   procesosCoactivo     CoactivoProceso[]
   solicitudesUrbanisticas SolicitudUrbanistica[]
   registrosSisben SisbenRegistro[]
+  jacDignatarios JacDignatario[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2167,4 +2168,128 @@ model SisbenRegistro {
 
   @@index([personaId])
   @@map("sisben_registros")
+}
+
+// ───────────────────── Módulo: PARTICIPACIÓN CIUDADANA (JAC) ─────────────────────
+// Registro de Juntas de Acción Comunal (Ley 743/2002): la organización comunal + sus dignatarios
+// por período (4 años, art. 33). Dignatarios REUSAN `Tercero` (misma identidad externa que
+// contratistas/contribuyentes/SISBEN — no se duplica). Insert-only en dignatarios: un cambio de
+// período o de persona en un cargo se registra como fila nueva, conservando el historial de
+// juntas directivas anteriores (quién ejerció qué cargo y cuándo).
+
+enum JacEstado {
+  ACTIVA
+  INACTIVA
+}
+
+model Jac {
+  id                 String    @id @default(cuid())
+  nombre             String
+  barrioVereda       String
+  personeriaJuridica String?   @unique
+  fechaPersoneria    DateTime?
+  estado             JacEstado @default(ACTIVA)
+
+  dignatarios JacDignatario[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("part_jac")
+}
+
+enum JacCargoDignatario {
+  PRESIDENTE
+  VICEPRESIDENTE
+  SECRETARIO
+  TESORERO
+  FISCAL
+  VOCAL
+}
+
+model JacDignatario {
+  id            String             @id @default(cuid())
+  jacId         String
+  jac           Jac                @relation(fields: [jacId], references: [id])
+  personaId     String
+  persona       Tercero            @relation(fields: [personaId], references: [id])
+  cargo         JacCargoDignatario
+  periodoInicio DateTime
+  periodoFin    DateTime
+  actoEleccion  String?
+  registradoPor String?
+
+  createdAt DateTime @default(now())
+
+  @@index([jacId])
+  @@map("part_jac_dignatarios")
+}
+
+// ───────────────────── Módulo: GESTIÓN DEL RIESGO DE DESASTRES (CMGRD) ─────────────────────
+// Registro de emergencias/eventos atendidos por el CMGRD (Ley 1523/2012) — AGREGADO (cifras de
+// afectación), no nominal: el municipio reporta a la UNGRD por evento, no lleva un registro
+// público de damnificados por nombre. Ayudas entregadas en tabla aparte, insert-only (mismo
+// patrón que ProyectoHitoReporte), para trazabilidad de entrega ante entes de control.
+
+enum TipoEventoGrd {
+  INUNDACION
+  DESLIZAMIENTO
+  INCENDIO_FORESTAL
+  INCENDIO_ESTRUCTURAL
+  VENDAVAL
+  SISMO
+  SEQUIA
+  OTRO
+}
+
+enum EstadoEmergenciaGrd {
+  ATENCION
+  CERRADA
+}
+
+/// Contador atómico del consecutivo de emergencias, por vigencia.
+model EmergenciaGrdConsecutivo {
+  id       String @id @default(cuid())
+  vigencia Int    @unique
+  ultimo   Int    @default(0)
+
+  @@map("grd_emergencia_consecutivos")
+}
+
+model EmergenciaGrd {
+  id                String              @id @default(cuid())
+  numero            String              @unique // "EMG-2026-001"
+  tipoEvento        TipoEventoGrd
+  fecha             DateTime
+  ubicacion         String
+  descripcion       String?
+  familiasAfectadas Int                 @default(0)
+  personasAfectadas Int                 @default(0)
+  estado            EstadoEmergenciaGrd @default(ATENCION)
+  registradoPor     String?
+
+  ayudas EmergenciaAyudaGrd[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fecha])
+  @@map("grd_emergencias")
+}
+
+/// Ayuda humanitaria/insumo entregado a una emergencia — insert-only, trazabilidad ante entes de
+/// control (no se edita ni se borra).
+model EmergenciaAyudaGrd {
+  id           String        @id @default(cuid())
+  emergenciaId String
+  emergencia   EmergenciaGrd @relation(fields: [emergenciaId], references: [id], onDelete: Cascade)
+  tipoAyuda    String
+  cantidad     String
+  fechaEntrega DateTime
+  entregadoPor String?
+
+  createdAt DateTime @default(now())
+
+  @@index([emergenciaId])
+  @@map("grd_emergencia_ayudas")
 }

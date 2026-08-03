@@ -1419,3 +1419,37 @@ Comisario de Familia (que solo tenía `responder`), se guardó, el chip apareci�
 `Cargo.grants` en la BD quedó `{"ventanilla_unica":["radicar","responder"]}` — confirmado por
 query directa. Revertido a `{"ventanilla_unica":["responder"]}` para no dejar el dato de prueba
 sobre la estructura real de Gobierno.
+
+## Progreso — Participación Ciudadana (JAC) + Gestión del Riesgo (CMGRD) — 2 módulos nuevos (2026-08-03)
+
+De las 4 sub-dependencias de Gobierno que quedaron abiertas, se construyó módulo transaccional
+propio para las 2 con valor claro (las otras 2 — Convivencia y Seguridad Ciudadana, Enlace de
+Víctimas — son más de coordinación/seguimiento sin "expediente" real, quedan pendientes).
+
+**Participación Ciudadana y Acción Comunal** (`participacion_ciudadana`) — registro de Juntas de
+Acción Comunal (Ley 743/2002): `Jac` (nombre, barrio/vereda, personería jurídica, estado) +
+`JacDignatario` (insert-only por período — Presidente/Vicepresidente/Secretario/Tesorero/Fiscal/
+Vocal, 4 años) **reusando `Tercero`** para la identidad de la persona (mismo patrón que Rentas/
+SISBEN, no se duplica). Certificado de existencia y representación en
+`/admin/participacion-ciudadana/certificado`.
+
+**Gestión del Riesgo de Desastres** (`gestion_riesgo`) — registro AGREGADO de emergencias
+atendidas por el CMGRD (Ley 1523/2012): `EmergenciaGrd` (tipo de evento, fecha, ubicación,
+familias/personas afectadas, consecutivo `EMG-2026-NNN` igual que Proyecto/Contrato) +
+`EmergenciaAyudaGrd` insert-only (ayudas entregadas, trazabilidad ante entes de control).
+Deliberadamente NO nominal (no se registra el nombre de cada damnificado — así reporta un
+municipio real a la UNGRD) y sin sesiones de CMGRD todavía (se agrega si hace falta después).
+
+**Hueco recurrente confirmado (tercera vez):** además de `aplicarPlantilla` no tocar
+`Dependencia.modulos` (Capa 2, ya sabido), un módulo CONTRATABLE nuevo tampoco aparece en el nav ni
+pasa la Capa 1 hasta que el superadmin lo agregue a `Tenant.modulosContratados` (meta-DB) — un
+paso MÁS que sembrar la estructura. Se hizo con `scripts/set-tenant-modulos.ts` para el demo.
+Checklist real para un módulo contratable nuevo: (1) migrar schema, (2) capacidad en
+`capacidades.ts`, (3) entrada en `modulos.ts`, (4) grant en `plantillas-cargo.ts` + resembrar,
+(5) `Dependencia.modulos` (Capa 2), (6) `Tenant.modulosContratados` (Capa 1, meta-DB).
+
+**Verificado en vivo end-to-end** contra el tenant demo real: se creó la JAC "JAC Barrio El Prado",
+una persona nueva (María Fernanda Ospina), se registró como Presidenta (período 2025-07-01 a
+2029-06-30) y el certificado la mostró correctamente. Se registró la emergencia `EMG-2026-001`
+(inundación, Barrio Ribera del Río, 12 familias/45 personas), se le agregó una ayuda (12 mercados)
+y se cerró — los contadores y estados se actualizaron en cada paso.

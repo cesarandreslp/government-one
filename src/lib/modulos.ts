@@ -47,6 +47,8 @@ export const MODULOS: Modulo[] = [
   { id: "pdm", nombre: "Plan de Desarrollo Municipal", categoria: "Planeación", ruta: "/admin/pdm", descripcion: "Ejes, programas, metas e indicadores del PDM (Ley 152/1994) y su seguimiento." },
   { id: "estratificacion", nombre: "Estratificación", categoria: "Planeación", dependeDe: ["rentas"], ruta: "/admin/estratificacion", descripcion: "Estrato socioeconómico por predio (Ley 142/1994): actualización auditada y certificado." },
   { id: "sisben", nombre: "SISBEN", categoria: "Planeación", ruta: "/admin/sisben", descripcion: "Registro local de clasificación socioeconómica (ficha, puntaje, grupo) y certificado." },
+  { id: "participacion_ciudadana", nombre: "Participación Ciudadana", categoria: "Gobierno", ruta: "/admin/participacion-ciudadana", descripcion: "Registro de Juntas de Acción Comunal y sus dignatarios (Ley 743/2002)." },
+  { id: "gestion_riesgo", nombre: "Gestión del Riesgo de Desastres", categoria: "Gobierno", ruta: "/admin/gestion-riesgo", descripcion: "CMGRD: registro de emergencias atendidas y ayudas entregadas (Ley 1523/2012)." },
 ]
 
 const POR_ID = new Map(MODULOS.map((m) => [m.id, m]))
