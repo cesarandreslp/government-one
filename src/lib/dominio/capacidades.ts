@@ -32,6 +32,8 @@ export const CAPACIDADES_POR_MODULO = {
   gestion_riesgo: ["consultar", "administrar"],
   convivencia_seguridad: ["consultar", "administrar"],
   enlace_victimas: ["consultar", "administrar"],
+  discapacidad: ["consultar", "administrar"],
+  adulto_mayor: ["consultar", "administrar"],
 } as const
 
 export type ModuloId = keyof typeof CAPACIDADES_POR_MODULO

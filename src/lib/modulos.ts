@@ -51,6 +51,8 @@ export const MODULOS: Modulo[] = [
   { id: "gestion_riesgo", nombre: "Gestión del Riesgo de Desastres", categoria: "Gobierno", ruta: "/admin/gestion-riesgo", descripcion: "CMGRD: registro de emergencias atendidas y ayudas entregadas (Ley 1523/2012)." },
   { id: "convivencia_seguridad", nombre: "Convivencia y Seguridad Ciudadana", categoria: "Gobierno", ruta: "/admin/convivencia-seguridad", descripcion: "Sesiones del Consejo de Seguridad y seguimiento a sus acuerdos (PISCC)." },
   { id: "enlace_victimas", nombre: "Enlace de Víctimas", categoria: "Gobierno", ruta: "/admin/enlace-victimas", descripcion: "Ayuda Humanitaria Inmediata a víctimas del conflicto armado (Ley 1448/2011)." },
+  { id: "discapacidad", nombre: "Discapacidad", categoria: "Bienestar Social", ruta: "/admin/discapacidad", descripcion: "Registro local de caracterización de discapacidad (RLCPD, Ley 1618/2013) y certificado." },
+  { id: "adulto_mayor", nombre: "Adulto Mayor", categoria: "Bienestar Social", ruta: "/admin/adulto-mayor", descripcion: "Beneficiarios de programas de adulto mayor: Colombia Mayor, Centro Día/Centro de Bienestar del Anciano." },
 ]
 
 const POR_ID = new Map(MODULOS.map((m) => [m.id, m]))

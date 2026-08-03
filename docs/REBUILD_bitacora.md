@@ -1483,3 +1483,35 @@ centro" (2026-08-01) con acuerdo "Aumentar patrullaje nocturno" asignado al Coma
 2026-07-29, alojamiento transitorio + mercado) registrada correctamente, reusando el `Tercero` ya
 creado en Participación Ciudadana — confirma que la identidad externa se comparte entre módulos
 como está diseñado.
+
+## Progreso — Bienestar Social: 5 sub-dependencias + Discapacidad y Adulto Mayor (2026-08-03)
+
+Bienestar Social pasó de FLAT (Secretario + 1 técnico) a sub-dependencias reales, mismo patrón de
+Gobierno/Planeación: 5 áreas (Primera Infancia/Infancia y Adolescencia, Discapacidad, Mujer y
+Equidad de Género, Juventud, Adulto Mayor). Módulo transaccional solo donde hay valor claro y
+distinto de lo que ya existe:
+
+- **Discapacidad** (`discapacidad`) — registro LOCAL de caracterización (Ley 1618/2013), REUSA
+  `Tercero`, mismo patrón exacto que Estratificación/SISBEN, con certificado.
+- **Adulto Mayor** (`adulto_mayor`) — beneficiarios de programas (Colombia Mayor —subsidio
+  NACIONAL de Prosperidad Social, el municipio solo hace el enlace/postulación—, Centro Día,
+  Centro de Bienestar del Anciano), REUSA `Tercero`, con estado POSTULADO/ACTIVO/RETIRADO.
+- **Infancia, Mujer, Juventud** — solo PQRSD por ahora: su casuística real de violencia/
+  protección ya la cubre Comisaría de Familia (PARD/VIF); un módulo de "programas" aparte
+  duplicaría esa función sin que el usuario haya pedido profundizar en cada una específicamente.
+
+**Migración delicada (repite el patrón de la reestructura de Planeación):** el cargo real
+"Técnico Operativo — Adulto Mayor" con la vinculación viva de Diego López vivía en `BS` — había
+que MOVERLO a la nueva `BS-ADULTO` sin recrearlo (perdería su `cargoId`/historial). `aplicarPlantilla`
+solo hace upsert por (dependenciaId, nombre), así que reaplicar la plantilla con el cargo listado
+bajo `BS-ADULTO` crea un cargo NUEVO duplicado en vez de mover el existente. Secuencia correcta:
+(1) reaplicar plantilla (crea las 5 dependencias + un cargo duplicado en BS-ADULTO), (2) script
+que borra el duplicado (sin vinculaciones, seguro) y actualiza el `dependenciaId` del cargo
+original a `BS-ADULTO` preservando su id, (3) reaplicar plantilla otra vez para confirmar
+convergencia idempotente (0 cargos nuevos). Verificado: Diego López sigue "ejerce: titular" sobre
+el mismo cargo, ahora con `adulto_mayor:consultar/administrar` además de `ventanilla_unica:responder`.
+
+**Verificado en vivo end-to-end** contra el tenant demo real: registro de discapacidad VISUAL para
+María Fernanda Ospina (persona ya creada en Participación Ciudadana — confirma reuso de `Tercero`
+entre secretarías distintas) con certificado generado correctamente; beneficiario de Colombia Mayor
+para "Contribuyente de prueba S.A.S." POSTULADO → ACTIVO.

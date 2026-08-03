@@ -548,6 +548,8 @@ model Tercero {
   registrosSisben SisbenRegistro[]
   jacDignatarios JacDignatario[]
   ahiEntregas AhiEntrega[]
+  registrosDiscapacidad RegistroDiscapacidad[]
+  beneficiosAdultoMayor BeneficiarioAdultoMayor[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2368,4 +2370,74 @@ model AhiEntrega {
 
   @@index([personaId])
   @@map("vict_ahi_entregas")
+}
+
+// ───────────────────── Módulo: DISCAPACIDAD ─────────────────────
+// Registro LOCAL de caracterización de discapacidad, REUSANDO `Tercero` (igual que SISBEN).
+// Simplificación declarada: el RLCPD real lo administra el Ministerio de Salud vía valoración
+// clínica por equipo multidisciplinario, no una API pública consultable en vivo (Ley 1618/2013,
+// art. 5 num. 13) — este es el registro que Bienestar Social mantiene localmente, para consulta
+// y certificación, no un espejo en tiempo real del sistema nacional.
+
+enum TipoDiscapacidad {
+  FISICA
+  VISUAL
+  AUDITIVA
+  INTELECTUAL
+  PSICOSOCIAL
+  MULTIPLE
+  OTRA
+}
+
+model RegistroDiscapacidad {
+  id            String           @id @default(cuid())
+  personaId     String
+  persona       Tercero          @relation(fields: [personaId], references: [id])
+  tipo          TipoDiscapacidad
+  fechaRegistro DateTime
+  origen        String?
+  observaciones String?
+  vigente       Boolean          @default(true)
+  registradoPor String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([personaId])
+  @@map("bs_discapacidad_registros")
+}
+
+// ───────────────────── Módulo: ADULTO MAYOR ─────────────────────
+// Registro de beneficiarios de programas de adulto mayor (Colombia Mayor, Centro Día/Centro de
+// Bienestar del Anciano), REUSANDO `Tercero`. Colombia Mayor es un subsidio NACIONAL (Prosperidad
+// Social) — el municipio hace la postulación/enlace local, no administra el pago.
+
+enum ProgramaAdultoMayor {
+  COLOMBIA_MAYOR
+  CENTRO_DIA
+  CENTRO_BIENESTAR_ANCIANO
+  OTRO
+}
+
+enum EstadoBeneficiarioAM {
+  POSTULADO
+  ACTIVO
+  RETIRADO
+}
+
+model BeneficiarioAdultoMayor {
+  id            String               @id @default(cuid())
+  personaId     String
+  persona       Tercero              @relation(fields: [personaId], references: [id])
+  programa      ProgramaAdultoMayor
+  fechaIngreso  DateTime
+  estado        EstadoBeneficiarioAM @default(POSTULADO)
+  observaciones String?
+  registradoPor String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([personaId])
+  @@map("bs_adulto_mayor_beneficiarios")
 }

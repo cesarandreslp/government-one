@@ -282,8 +282,45 @@ const ALCALDIA: PlantillaEntidad = {
       codigo: "BS", nombre: "Secretaría de Bienestar Social", tipo: "SECRETARIA", padreCodigo: "DESP",
       cargos: [
         { nombre: "Secretario de Bienestar Social", esJefatura: true, empleoCodigo: "020-01", grants: { ventanilla_unica: ["responder"] } },
-        { nombre: "Técnico Operativo — Adulto Mayor", empleoCodigo: "314-01",
-          grants: { ventanilla_unica: ["responder"] },
+      ],
+    },
+    // Sub-dependencias de Bienestar Social: mismo patrón de Gobierno — estructura real por
+    // población, módulo transaccional solo donde hay valor claro y distinto de lo que ya existe
+    // (Discapacidad y Adulto Mayor: registro/beneficiarios propios; Infancia/Mujer/Juventud por
+    // ahora solo PQRSD — su casuística real de violencia/protección ya la cubre Comisaría de
+    // Familia, un módulo aparte duplicaría esa función sin comparativo del usuario que lo pida).
+    {
+      codigo: "BS-INFANCIA", nombre: "Primera Infancia, Infancia y Adolescencia", tipo: "OFICINA", padreCodigo: "BS",
+      cargos: [
+        { nombre: "Profesional de Infancia y Adolescencia", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"] },
+          funciones: "Articular la política de infancia y adolescencia (Ley 1098/2006) y la ruta de atención integral a la primera infancia (Ley 1804/2016) con ICBF y Comisaría de Familia." },
+      ],
+    },
+    {
+      codigo: "BS-DISCAP", nombre: "Discapacidad", tipo: "OFICINA", padreCodigo: "BS",
+      cargos: [
+        { nombre: "Profesional de Discapacidad", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"], discapacidad: ["consultar", "administrar"] },
+          funciones: "Mantener actualizado el Registro de Localización y Caracterización de Personas con Discapacidad (RLCPD, Ley 1618/2013)." },
+      ],
+    },
+    {
+      codigo: "BS-MUJER", nombre: "Mujer y Equidad de Género", tipo: "OFICINA", padreCodigo: "BS",
+      cargos: [
+        { nombre: "Profesional de Mujer y Género", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"] },
+          funciones: "Implementar la política pública de mujer y equidad de género (Ley 1257/2008) y sus programas de formación/emprendimiento." },
+      ],
+    },
+    {
+      codigo: "BS-JUV", nombre: "Juventud", tipo: "OFICINA", padreCodigo: "BS",
+      cargos: [
+        { nombre: "Profesional de Juventud", empleoCodigo: "219-02", grants: { ventanilla_unica: ["responder"] },
+          funciones: "Acompañar la Plataforma Municipal de Juventudes y el Consejo Municipal de Juventud (Ley 1622/2013 — Estatuto de Ciudadanía Juvenil)." },
+      ],
+    },
+    {
+      codigo: "BS-ADULTO", nombre: "Adulto Mayor", tipo: "OFICINA", padreCodigo: "BS",
+      cargos: [
+        { nombre: "Técnico Operativo — Adulto Mayor", empleoCodigo: "314-01", grants: { ventanilla_unica: ["responder"], adulto_mayor: ["consultar", "administrar"] },
           funciones: "Atender trámites y solicitudes del programa de adulto mayor: subsidios de Colombia Mayor, afiliación y novedades de beneficiarios." },
       ],
     },
