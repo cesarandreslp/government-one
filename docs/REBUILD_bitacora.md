@@ -34,6 +34,8 @@
 - `FUNDACION_estructura_organizacional.md` — fundación de dominio. **Sólida (usuario, 2026-07-12).**
 - `FUNDACION_plano_de_control.md` — fundación de infraestructura / escala.
 - `VERIFICACION_neon_escala.md` — tarea de verificación de límites Neon (B1/B2 con Neon-sales pendientes).
+- `REFERENCIA_interoperabilidad_estatal.md` — nota (no plan activo) sobre alineación con X-Road/AND
+  para cuando algún tenant requiera trámites reales contra otras entidades del Estado.
 
 ## Decisiones ya tomadas (no relitigar sin motivo)
 - Roles → **capacidades** para el ciclo contractual (estructurar/revisar_juridica/concepto_juridico/
@@ -1305,3 +1307,50 @@ con contratista "Contribuyente de prueba S.A.S." desde la verificación de Contr
 meta, y su contrato+contratista aparecieron correctamente anidados bajo el proyecto — los 3
 proyectos de 3 secretarías distintas (PLAN, HAC, ATC) conviviendo bajo un mismo programa, exacto
 al requisito pedido.
+
+## Progreso — Alcance particular vs. global en Contratación y Banco de Proyectos (2026-08-03)
+
+**Hueco señalado por el usuario:** "cada secretaría tiene contratación y le hace seguimiento en
+ejecución/financiero a lo que le corresponde ejecutar del PDM; Planeación (y Hacienda) además le
+hacen seguimiento GENERAL — por secretaría, por proyecto, por programa." Verificado en el código:
+`/admin/contratacion` y `/admin/proyectos` (Banco de Proyectos) NO filtraban por dependencia —
+cualquier funcionario con la capacidad veía TODOS los contratos/proyectos del tenant, de cualquier
+secretaría (un profesional de `PLAN-CONT` veía también los contratos de Hacienda o Gobierno).
+`/admin/pdm` ya tenía la agregación cruzada de secretarías (commit `e62aacc`), pero eso no compensa
+el hueco de los otros dos módulos.
+
+**Modelo de acceso (reutiliza dato ya existente, sin capacidad nueva):** `Dependencia.
+esServicioCompartido` ya significaba "sirve a TODAS las dependencias" (Jurídica, Contratación
+central). Se generaliza esa misma regla:
+- Nueva función `alcanceDependencias` (`src/lib/dominio/acceso.ts`): si el funcionario ejerce en
+  una dependencia `esServicioCompartido` → `veGlobal=true` (ve todo el tenant). Si no → calcula la
+  FAMILIA (la secretaría/oficina de primer nivel bajo el despacho + todos sus descendientes,
+  recursivo — cubre casos como Ordenamiento Físico→Avisos/Espacio Público, 3 niveles) y solo ve
+  eso. Ojo con la raíz: subir hasta el tope ABSOLUTO del árbol (el despacho, del que cuelgan todas
+  las secretarías) hace que la familia de cualquiera termine siendo el tenant entero — hay que
+  parar un nivel antes (la secretaría misma).
+- `Banco de Proyectos` (`PLAN-BP`) se marcó `esServicioCompartido: true` — por diseño ya hace
+  seguimiento de TODAS las dependencias (su propio texto de funciones lo decía), solo faltaba
+  reflejarlo en el dato. Con esto, Planeación mantiene su vista global existente sin cambios, y el
+  resto de secretarías (si algún día tienen banco_proyectos/contratación propios) automáticamente
+  quedan en modo particular sin código adicional.
+- `/admin/contratacion`: filtra contratos por `rp.cdp.proyecto.dependenciaId` en la familia, UNIDO
+  con `estructuradorId` de cualquiera de la familia (`usuariosDeAlcance`) — cubre el caso real de
+  un contrato BORRADOR sin RP/CDP aún (no tiene cómo trazarse a una dependencia por el proyecto).
+  También filtra `rpsDisponibles` (el selector de RP al crear un contrato nuevo) con el mismo
+  criterio.
+- `/admin/proyectos`: filtra `Proyecto.dependenciaId` directo.
+- Ambas páginas muestran un badge "Viendo: tu secretaría" / "Viendo: todas las secretarías".
+- Hacienda no necesitó cambios: Contabilidad/Presupuesto/Tesorería ya son tenant-wide por
+  naturaleza (un solo libro mayor), eso YA es su vista global con enfoque financiero.
+- `/admin/pdm` se dejó sin tocar: su capacidad (`pdm`) ya es exclusiva de Planeación en la plantilla
+  actual, y es justamente la vista global que el usuario pidió — filtrarla habría regresado la
+  funcionalidad recién construida.
+
+**Verificado en vivo** (`scripts/verify-alcance.ts` contra el tenant demo real, no mock): Paula
+(Banco de Proyectos, ahora servicio compartido) → `veGlobal=true`. Eliana (`PLAN-CONT`, NO
+compartido) → familia resuelta a exactamente las 12 dependencias de Planeación (excluye HAC/ATC/
+GOB); de los 3 proyectos del tenant, ve solo 1 (el de PLAN) en modo particular, contra los 3 que ve
+Paula en modo global — la discriminación funciona. `scripts/reaplicar-plantilla.ts` (nuevo, reusa
+`aplicarPlantilla` que ya es idempotente) propagó `esServicioCompartido=true` al tenant demo ya
+sembrado sin migración de schema (el campo ya existía).

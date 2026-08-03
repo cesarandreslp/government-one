@@ -183,7 +183,9 @@ const ALCALDIA: PlantillaEntidad = {
       ],
     },
     {
-      codigo: "PLAN-BP", nombre: "Banco de Proyectos", tipo: "OFICINA", padreCodigo: "PLAN",
+      // esServicioCompartido: hace seguimiento financiero/físico al PDM de TODAS las dependencias
+      // (ver funciones abajo) — misma naturaleza transversal que Jurídica/Contratación central.
+      codigo: "PLAN-BP", nombre: "Banco de Proyectos", tipo: "OFICINA", esServicioCompartido: true, padreCodigo: "PLAN",
       cargos: [
         { nombre: "Profesional Especializado — Banco de Proyectos y Plan de Desarrollo", empleoCodigo: "222-02",
           grants: { banco_proyectos: ["administrar", "reportar_avance", "consultar"], pdm: ["administrar", "reportar_avance", "consultar"] },

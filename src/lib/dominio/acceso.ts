@@ -58,6 +58,71 @@ export async function tieneCapacidad(
   return grantsIncluyen(grants, modulo, capacidad)
 }
 
+export interface AlcanceDependencias {
+  /** Servicio compartido (Contratación central, Jurídica, Banco de Proyectos/PDM…) o admin del
+   *  tenant → ve TODO el tenant sin filtrar por dependencia (son, por definición, transversales). */
+  veGlobal: boolean
+  /** Ids de dependencia visibles en modo PARTICULAR: la familia completa (raíz + descendientes)
+   *  de cada dependencia donde el funcionario ejerce hoy un cargo vigente. Vacío si veGlobal. */
+  dependenciaIds: string[]
+}
+
+/**
+ * Alcance de un funcionario para módulos transversales por secretaría (Contratación, Banco de
+ * Proyectos): cada secretaría ve SOLO lo que le corresponde ejecutar (su familia de dependencias:
+ * raíz + todas las hijas), salvo que ejerza en una dependencia `esServicioCompartido` — esas
+ * sirven a TODA la entidad por diseño y ven TODO (ver comentario del campo en el schema).
+ */
+export async function alcanceDependencias(
+  db: Pick<PrismaClient, "vinculacionCargo" | "dependencia">,
+  usuarioId: string,
+  ahora: Date = new Date(),
+): Promise<AlcanceDependencias> {
+  const vinculos = await db.vinculacionCargo.findMany({
+    where: { usuarioId, ...whereVigente(ahora) },
+    include: { cargo: { include: { dependencia: true } } },
+  })
+  const propias = vinculos.filter((v) => v.cargo.activo).map((v) => v.cargo.dependencia)
+  if (propias.length === 0) return { veGlobal: false, dependenciaIds: [] }
+  if (propias.some((d) => d.esServicioCompartido)) return { veGlobal: true, dependenciaIds: [] }
+
+  const todas = await db.dependencia.findMany()
+  const porId = new Map(todas.map((d) => [d.id, d]))
+  // Raíz de la FAMILIA = la secretaría/oficina de primer nivel, no el tope absoluto del árbol
+  // (el despacho, del que cuelgan TODAS las secretarías) — si subiéramos hasta ahí, la familia
+  // de cualquier dependencia terminaría siendo el tenant entero.
+  const raizDe = (id: string): string => {
+    const d = porId.get(id)
+    const padre = d?.padreId ? porId.get(d.padreId) : undefined
+    if (!padre || !padre.padreId) return id // yo soy el tope absoluto, o mi padre lo es
+    return raizDe(d!.padreId!)
+  }
+  const descendientesDe = (id: string): string[] => {
+    const hijas = todas.filter((d) => d.padreId === id).map((d) => d.id)
+    return [id, ...hijas.flatMap(descendientesDe)]
+  }
+  const ids = new Set<string>()
+  for (const raiz of new Set(propias.map((d) => raizDe(d.id)))) {
+    for (const id of descendientesDe(raiz)) ids.add(id)
+  }
+  return { veGlobal: false, dependenciaIds: [...ids] }
+}
+
+/** Usuarios que ejercen HOY un cargo en alguna de estas dependencias — para incluir en el modo
+ *  PARTICULAR sus contratos aún sin RP/CDP (recién creados, todavía no financian un proyecto). */
+export async function usuariosDeAlcance(
+  db: Pick<PrismaClient, "vinculacionCargo">,
+  dependenciaIds: string[],
+  ahora: Date = new Date(),
+): Promise<string[]> {
+  if (dependenciaIds.length === 0) return []
+  const vinculos = await db.vinculacionCargo.findMany({
+    where: { ...whereVigente(ahora), cargo: { dependenciaId: { in: dependenciaIds } } },
+    select: { usuarioId: true },
+  })
+  return [...new Set(vinculos.map((v) => v.usuarioId))]
+}
+
 /** ¿La persona está ausente (vacaciones/licencia/…) en `ahora`? (enriquecimiento RRHH). */
 export async function usuarioAusente(db: TenantDB, usuarioId: string, ahora: Date = new Date()): Promise<boolean> {
   const a = await db.ausencia.findFirst({

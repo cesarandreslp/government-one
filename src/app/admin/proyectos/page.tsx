@@ -1,4 +1,5 @@
-import { requerirFuncionario, funcionarioPuede } from "@/lib/dal-tenant"
+import { requerirFuncionario, funcionarioPuede, ROLES_ADMIN_TENANT } from "@/lib/dal-tenant"
+import { alcanceDependencias } from "@/lib/dominio/acceso"
 import { ejecucionProyecto } from "@/lib/proyectos/ejecucion"
 import { ProyectosAcciones } from "./proyectos-acciones"
 
@@ -25,8 +26,18 @@ export default async function ProyectosPage() {
     funcionarioPuede(ctx, "banco_proyectos", "reportar_avance"),
   ])
 
+  // Particular vs. global: por defecto cada secretaría ve solo SUS proyectos — salvo servicio
+  // compartido (Banco de Proyectos/PDM, que hace seguimiento de todas las dependencias por
+  // diseño) o admin del tenant. Ver alcanceDependencias.
+  const esAdmin = ROLES_ADMIN_TENANT.includes(ctx.sesion.rol)
+  const alcance = await alcanceDependencias(db, ctx.sesion.usuarioId)
+  const veGlobal = esAdmin || alcance.veGlobal
+
   const [proyectos, dependencias, metas] = await Promise.all([
-    db.proyecto.findMany({ orderBy: { createdAt: "desc" }, include: { dependencia: true, hitos: true, meta: { include: { programa: true } } } }),
+    db.proyecto.findMany({
+      where: veGlobal ? {} : { dependenciaId: { in: alcance.dependenciaIds } },
+      orderBy: { createdAt: "desc" }, include: { dependencia: true, hitos: true, meta: { include: { programa: true } } },
+    }),
     db.dependencia.findMany({ where: { activa: true }, orderBy: { codigo: "asc" } }),
     db.pdmMeta.findMany({ include: { programa: true }, orderBy: { createdAt: "asc" } }),
   ])
@@ -52,6 +63,9 @@ export default async function ProyectosPage() {
         <p className="text-sm text-slate-500">
           Ejecución financiera vs. física — la brecha entre ambas es la señal de riesgo (ej. anticipo pagado sin obra ejecutada).
         </p>
+        <span className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${veGlobal ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600"}`}>
+          {veGlobal ? "Viendo: todas las secretarías" : "Viendo: tu secretaría"}
+        </span>
       </header>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -1,5 +1,5 @@
-import { requerirFuncionario, funcionarioPuede } from "@/lib/dal-tenant"
-import { usuariosConCapacidad } from "@/lib/dominio/acceso"
+import { requerirFuncionario, funcionarioPuede, ROLES_ADMIN_TENANT } from "@/lib/dal-tenant"
+import { usuariosConCapacidad, alcanceDependencias, usuariosDeAlcance } from "@/lib/dominio/acceso"
 import { ContratacionAcciones } from "./contratacion-acciones"
 
 export const dynamic = "force-dynamic"
@@ -16,8 +16,25 @@ export default async function ContratacionPage() {
     funcionarioPuede(ctx, "contratacion", "supervisar"),
   ])
 
+  // Particular vs. global: cada secretaría ve solo los contratos que financian SUS proyectos (o
+  // que ella misma estructuró, aún sin RP) — salvo servicio compartido (Contratación central,
+  // Jurídica) o admin del tenant, que ven todo. Ver alcanceDependencias.
+  const esAdmin = ROLES_ADMIN_TENANT.includes(ctx.sesion.rol)
+  const alcance = await alcanceDependencias(db, ctx.sesion.usuarioId)
+  const veGlobal = esAdmin || alcance.veGlobal
+  const usuarioIdsAlcance = veGlobal ? [] : await usuariosDeAlcance(db, alcance.dependenciaIds)
+
+  const filtroPorAlcance = veGlobal ? {} : {
+    OR: [
+      { rp: { cdp: { proyecto: { dependenciaId: { in: alcance.dependenciaIds } } } } },
+      { estructuradorId: { in: usuarioIdsAlcance } },
+    ],
+  }
+  const filtroRpPorAlcance = veGlobal ? {} : { cdp: { proyecto: { dependenciaId: { in: alcance.dependenciaIds } } } }
+
   const [contratos, terceros, rpsDisponibles, estructuradores, abogados] = await Promise.all([
     db.contrato.findMany({
+      where: filtroPorAlcance,
       orderBy: { createdAt: "desc" },
       include: {
         tercero: true, estructurador: true, abogadoAsignado: true,
@@ -27,7 +44,7 @@ export default async function ContratacionPage() {
     }),
     db.tercero.findMany({ orderBy: { razonSocial: "asc" } }),
     // RP vigentes que aún no respaldan otro contrato — un RP no se reparte entre contratos.
-    db.rp.findMany({ where: { estado: "VIGENTE", contratos: { none: {} } }, orderBy: { numero: "asc" } }),
+    db.rp.findMany({ where: { estado: "VIGENTE", contratos: { none: {} }, ...filtroRpPorAlcance }, orderBy: { numero: "asc" } }),
     usuariosConCapacidad(db, "contratacion", "elaborar"),
     usuariosConCapacidad(db, "contratacion", "revisar_juridica"),
   ])
@@ -43,6 +60,9 @@ export default async function ContratacionPage() {
         <p className="text-sm text-slate-500">
           Ley 80/1150 — estructuración → revisión jurídica → suscripción → ejecución, con gating real por persona asignada.
         </p>
+        <span className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${veGlobal ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600"}`}>
+          {veGlobal ? "Viendo: todas las secretarías" : "Viendo: tu secretaría"}
+        </span>
       </header>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
