@@ -227,12 +227,15 @@ const ALCALDIA: PlantillaEntidad = {
         { nombre: "Secretario de Gobierno", esJefatura: true, empleoCodigo: "020-01", grants: { contratacion: ["elaborar"], ventanilla_unica: ["responder"] } },
       ],
     },
-    // Sub-dependencias de Gobierno: solo estructura + conexión a Ventanilla Única (routing de
-    // PQRSD) por ahora — sin módulo transaccional propio todavía (mismo patrón que Alumbrado
-    // Público/Espacio Público de Planeación antes de tener su turno). Investigado (no descrito
-    // por el usuario): son las áreas casi universales de una Secretaría de Gobierno municipal en
-    // Colombia (Ley 1801/2016, Ley 1098/2006 + Ley 2126/2021, Ley 1523/2012, Ley 1448/2011,
-    // Ley 743/2002) — profundizar en funciones/módulo cuando le llegue el turno a cada una.
+    // Sub-dependencias de Gobierno: estructura + conexión a Ventanilla Única. Investigado (no
+    // descrito por el usuario): son las áreas casi universales de una Secretaría de Gobierno
+    // municipal en Colombia (Ley 1801/2016, Ley 1098/2006 + Ley 2126/2021, Ley 1523/2012,
+    // Ley 1448/2011, Ley 743/2002).
+    // GOB-COMFAM (Comisaría de Familia) y GOB-INSPOL (Inspección de Policía): decisión del
+    // usuario (2026-08-03) — esto es DEFINITIVO, no scaffolding a la espera de su turno. La
+    // gestión real de casos vive en un sistema externo (GEFA), así que aquí solo responden
+    // PQRSD. No construir módulo transaccional propio para estas dos. Las otras 4 sí siguen
+    // abiertas a módulo propio cuando les toque el turno.
     {
       codigo: "GOB-COMFAM", nombre: "Comisaría de Familia", tipo: "OFICINA", padreCodigo: "GOB",
       cargos: [

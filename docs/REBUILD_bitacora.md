@@ -1382,9 +1382,19 @@ hace solo.
 `GOB-INSPOL`, `GOB-CONVIV`, `GOB-PART`, `GOB-VICT`, `GOB-GRD`) quedaron sembradas bajo `GOB`, cada
 una con su cargo y `modulos=["ventanilla_unica"]` confirmado por query directa.
 
-**Siguiente:** cuando le toque el turno a Gobierno, profundizar una por una (empezando
-probablemente por Comisaría de Familia o Inspección de Policía, las de mayor volumen real) —
-requiere investigar cada proceso o que el usuario traiga su propio comparativo.
+**Decisión del usuario (2026-08-03, cierra el tema — no re-litigar):** Comisaría de Familia NO
+necesita módulo transaccional propio en Government One — el usuario ya tiene **GEFA** (sistema
+externo) para la gestión real de casos de esa dependencia. Por la misma razón/alcance, Inspección
+de Policía **tampoco** — ambas quedan, de forma DEFINITIVA (no temporal), solo respondiendo PQRSD
+vía Ventanilla Única. Es decir: lo que ya está sembrado (estructura + `ventanilla_unica:responder`
+únicamente) **es el estado final de estas dos**, no un scaffolding a la espera de su turno — no
+hace falta investigar ni construir sus procesos (VIF/PARD, querellas/comparendos) dentro de esta
+plataforma. Queda como punto de interoperabilidad futura si algún día se integra con GEFA (ver
+`REFERENCIA_interoperabilidad_estatal.md`), no como módulo propio.
+
+Las 4 sub-dependencias restantes de Gobierno (Convivencia y Seguridad Ciudadana, Participación
+Ciudadana, Enlace de Víctimas, Gestión del Riesgo) siguen abiertas a que se les construya módulo
+propio cuando les toque el turno — sin decisión tomada aún sobre ellas.
 
 ## Progreso — Editor de capacidades (Capa 3) por cargo en `/admin/estructura` (2026-08-03)
 
