@@ -166,6 +166,11 @@ model Usuario {
   claseRiesgoArl Int?
   codigoCaja     String?
 
+  /// Identidad externa (portal): solo se usa cuando `rol = CONTRATISTA` — dice CUÁL Tercero es
+  /// esta persona, para poder mostrarle únicamente SUS contratos. Null en cualquier funcionario.
+  terceroId String?
+  tercero   Tercero? @relation(fields: [terceroId], references: [id])
+
   vinculaciones    VinculacionCargo[]
   ausencias        Ausencia[]
   radicados        Radicado[]
@@ -551,6 +556,7 @@ model Tercero {
   registrosDiscapacidad RegistroDiscapacidad[]
   beneficiosAdultoMayor BeneficiarioAdultoMayor[]
   garantiasAseguradas   Garantia[]
+  usuariosPortal        Usuario[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1026,6 +1032,8 @@ model Contrato {
   versiones ContratoVersion[]
   garantias Garantia[]
   modificaciones ModificacionContrato[]
+  actividades ContratoActividad[]
+  informesSupervision InformeSupervision[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2518,4 +2526,85 @@ model BeneficiarioAdultoMayor {
 
   @@index([personaId])
   @@map("bs_adulto_mayor_beneficiarios")
+}
+
+// ───────────────────── Contratación: SUPERVISIÓN DE EJECUCIÓN (informes con IA) ─────────────────────
+// El contratista (identidad externa vía Usuario.terceroId, portal /contratista) reporta avance
+// actividad por actividad; la IA redacta el informe en 1ra persona a partir de lo que describe
+// (mín. 3 párrafos de ~8 líneas, ver src/lib/ia/redactar-informe.ts). El supervisor (capacidad
+// contratacion:supervisar) lo aprueba o lo devuelve — mismo patrón que la revisión jurídica del
+// contrato (ver ContratoVersion/responderRevisionAction): un ciclo con posible devolución, no
+// aprobación de una sola vía. Al aprobar, la IA redacta el informe del supervisor en 3ra persona.
+
+/// Actividad/obligación del contrato sobre la que el contratista reporta avance — la define quien
+/// estructura el contrato (mismo rol/capacidad que crea el contrato), el contratista solo elige
+/// entre las ya definidas, no las inventa.
+model ContratoActividad {
+  id          String   @id @default(cuid())
+  contratoId  String
+  contrato    Contrato @relation(fields: [contratoId], references: [id])
+  descripcion String
+  orden       Int      @default(0)
+  activa      Boolean  @default(true)
+
+  reportes ActividadReporte[]
+
+  createdAt DateTime @default(now())
+
+  @@index([contratoId])
+  @@map("con_actividades")
+}
+
+enum EstadoInformeSupervision {
+  BORRADOR
+  ENVIADO
+  DEVUELTO
+  APROBADO
+}
+
+/// Informe periódico de ejecución — agrupa los reportes de actividad de un período. Mutable
+/// (no insert-only): el contratista corrige EN el mismo informe cuando el supervisor lo devuelve,
+/// ponytail: sin historial versión-por-versión del contenido todavía — si entes de control exigen
+/// trazar cada corrección palabra por palabra, agregar una tabla insert-only tipo ContratoVersion.
+model InformeSupervision {
+  id                String                   @id @default(cuid())
+  contratoId        String
+  contrato          Contrato                 @relation(fields: [contratoId], references: [id])
+  numero            Int // consecutivo por contrato
+  periodo           String // ej. "Agosto 2026" — descrito libre por el contratista
+  estado            EstadoInformeSupervision @default(BORRADOR)
+  textoSupervisorIA String? // informe del supervisor en 3ra persona, generado al APROBAR
+  observaciones     String? // motivo de devolución (o nota de aprobación)
+  decididoPor       String?
+  fechaDecision     DateTime?
+
+  actividades ActividadReporte[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([contratoId, numero])
+  @@index([contratoId])
+  @@map("con_informes_supervision")
+}
+
+/// Reporte del contratista sobre UNA actividad, dentro de un informe. `textoIA` es el párrafo(s)
+/// redactado en 1ra persona a partir de `descripcionContratista` — se regenera si el contratista
+/// edita la descripción tras una devolución.
+model ActividadReporte {
+  id                     String             @id @default(cuid())
+  informeId              String
+  informe                InformeSupervision @relation(fields: [informeId], references: [id], onDelete: Cascade)
+  actividadId            String
+  actividad              ContratoActividad  @relation(fields: [actividadId], references: [id])
+  descripcionContratista String
+  evidenciaUrl           String?
+  textoIA                String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([informeId, actividadId])
+  @@index([informeId])
+  @@map("con_actividad_reportes")
 }

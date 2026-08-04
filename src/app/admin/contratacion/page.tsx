@@ -43,6 +43,8 @@ export default async function ContratacionPage() {
         rp: { include: { cdp: { include: { proyecto: true } } } },
         garantias: { include: { aseguradora: true }, orderBy: { createdAt: "asc" } },
         modificaciones: { orderBy: { numero: "asc" } },
+        actividades: { orderBy: { orden: "asc" } },
+        informesSupervision: { orderBy: { numero: "desc" }, include: { actividades: { include: { actividad: true } } } },
       },
     }),
     db.tercero.findMany({ orderBy: { razonSocial: "asc" } }),
@@ -133,6 +135,13 @@ export default async function ContratacionPage() {
               id: m.id, numero: m.numero, tipo: m.tipo,
               valorAdicion: m.valorAdicion ? Number(m.valorAdicion) : null, diasProrroga: m.diasProrroga,
               justificacion: m.justificacion, fecha: m.fecha.toISOString().slice(0, 10),
+            })),
+            terceroId: c.terceroId,
+            actividades: c.actividades.map((a) => ({ id: a.id, descripcion: a.descripcion })),
+            informesSupervision: c.informesSupervision.map((i) => ({
+              id: i.id, numero: i.numero, periodo: i.periodo, estado: i.estado, observaciones: i.observaciones,
+              textoSupervisorIA: i.textoSupervisorIA,
+              actividades: i.actividades.map((a) => ({ actividadDescripcion: a.actividad.descripcion, descripcionContratista: a.descripcionContratista, evidenciaUrl: a.evidenciaUrl, textoIA: a.textoIA })),
             })),
           }
         })}

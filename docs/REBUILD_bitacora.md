@@ -1559,3 +1559,59 @@ del flujo de informes de ejecución con IA (contratista describe actividad → I
 1ra persona, mín. 3 párrafos de 8 líneas → supervisor aprueba/devuelve, mismo patrón que
 `responderRevisionAction` → IA genera informe del supervisor en 3ra persona) — queda guardada en
 memoria de proyecto (`project-supervision-informes-ia`), no repetir la pregunta.
+
+## Progreso — Contratación: Supervisión de Ejecución con IA (2026-08-04)
+
+Segundo bloque de 4 (spec completa del usuario, guardada en memoria `project-supervision-informes-ia`
+antes de construir). Cierra el hueco más grande encontrado en la investigación previa: el rol
+`CONTRATISTA` existía en el schema **desde la fundación** ("identidad externa, no ocupa cargo")
+pero nunca se implementó — sin portal, sin vínculo `Usuario`↔`Tercero`, sin forma real de que un
+contratista entrara a la plataforma. Tampoco existía infraestructura de subida de archivos en todo
+el repo (los campos "evidencia" ya existentes, ej. `ProyectoHito.evidenciaUrl`, son texto plano con
+URL pegada) — se siguió ese mismo patrón para las evidencias de este módulo, no se construyó storage.
+
+**Flujo implementado (tal como lo especificó el usuario):**
+1. `ContratoActividad` — el estructurador define las actividades/obligaciones del contrato
+   (`crearActividadAction`, capacidad `contratacion:elaborar`).
+2. `crearAccesoContratistaAction` — el estructurador/aprobador da acceso al portal: crea/actualiza
+   un `Usuario` con `rol=CONTRATISTA` y `terceroId` (nuevo campo en `Usuario`, nullable, solo para
+   esta identidad externa), con contraseña fijada por el admin (mismo patrón que
+   `feedback-passwords-test-fase-construccion`).
+3. **Portal nuevo `/contratista`** (`src/lib/dal-contratista.ts`, DAL propio — NUNCA reusar
+   `requerirFuncionario`, que no valida `terceroId`): el contratista entra con la misma sesión/
+   cookie de tenant, ve solo sus contratos `EN_EJECUCION`/`SUSPENDIDO` (`terceroId` propio),
+   escoge actividad por actividad, describe qué hizo, la IA redacta el informe.
+4. **IA en 1ra persona** (`redactarInformeActividad`, mínimo 3 párrafos ~8 líneas) reusando el
+   MISMO adaptador de credenciales por tenant que ya existía para clasificación de PQRSD
+   (`obtenerSecretoTenant(tenantId, "ia")`) — se agregaron funciones de generación de texto LIBRE
+   (`generarTexto*`) a cada proveedor (`proveedores/{openai-compatible,anthropic,gemini}.ts`),
+   separadas de las de clasificación (forzaban tool-calling, forma distinta).
+5. `enviarInformeAction` — exige que TODAS las actividades activas del contrato tengan reporte
+   antes de pasar `BORRADOR/DEVUELTO → ENVIADO`.
+6. `decidirInformeAction` (supervisor, capacidad `contratacion:supervisar`/`aprobar`) — Aprobar/
+   Devolver, **mismo patrón que `responderRevisionAction`** (revisión jurídica): un ciclo con
+   posible devolución, no aprobación de una sola vía. Al Aprobar, la IA redacta el informe del
+   supervisor en 3ra persona (`redactarInformeSupervisor`), alternando con el nombre del
+   contratista — si la IA no está disponible, la acción falla explícitamente (a diferencia de la
+   clasificación de PQRSD, que degrada a null y sigue el flujo manual, acá el texto generado ES el
+   entregable, no puede quedar vacío en silencio).
+
+**Simplificación declarada** (`ponytail` en el schema): `InformeSupervision`/`ActividadReporte`
+son mutables, no insert-only como `ContratoVersion` — el contratista corrige EN el mismo registro
+tras una devolución. Sin historial versión-por-versión del contenido todavía; agregar una tabla
+insert-only si entes de control exigen trazar cada corrección.
+
+**Verificado en vivo con IA REAL** (Groq, credencial real del tenant demo, no mock):
+`scripts/verify-supervision.ts` — ciclo completo actividad→informe BORRADOR→ENVIADO→DEVUELTO→
+ENVIADO→APROBADO con 2 redacciones de IA reales (confirmado: 1ra persona con verbos reales
+"Realicé"/"efectué"/"retiré"/"verifiqué", 3 párrafos; informe del supervisor en 3ra persona
+mencionando el nombre del contratista). Luego **verificado end-to-end por navegador real**: login
+como contratista real (redirect automático a `/contratista` según rol), 5 actividades reportadas
+una por una con llamadas reales a la IA visibles en pantalla, gate de "enviar solo si todas
+reportadas" confirmado bloqueado→habilitado, envío real, cambio de sesión a supervisor, y
+aprobación con clic real generando el informe del supervisor con IA en vivo.
+
+**Nota de infraestructura:** durante esta sesión hubo inestabilidad intermitente del DNS local
+hacia Neon (`*.neon.tech`) y Groq (`api.groq.com`) — fallos `EAI_AGAIN` que se resolvían solos en
+5-90 segundos. No es un problema del código (confirmado con `nslookup` directo); si vuelve a pasar,
+esperar y reintentar, no asumir que la app está rota.

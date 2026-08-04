@@ -51,3 +51,24 @@ export async function llamarAnthropic(
     clearTimeout(timeout)
   }
 }
+
+/** Generación de texto libre (sin tool-calling) — redacción de informes, no clasificación. */
+export async function generarTextoAnthropic(prompt: string, apiKey: string): Promise<string | null> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  try {
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+      body: JSON.stringify({ model: MODELO, max_tokens: 2000, temperature: 0.4, messages: [{ role: "user", content: prompt }] }),
+      signal: controller.signal,
+    })
+    if (!res.ok) return null
+    const data = (await res.json()) as { content?: Array<{ type: string; text?: string }> }
+    return data.content?.find((b) => b.type === "text")?.text?.trim() || null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}

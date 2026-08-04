@@ -5,6 +5,9 @@ import { requerirFuncionario, funcionarioPuede, ROLES_ADMIN_TENANT } from "@/lib
 import { tieneCapacidad } from "@/lib/dominio/acceso"
 import { puedeAvanzarContrato, type EstadoContrato } from "@/lib/contratacion/flujo"
 import { validarTopeAdicion } from "@/lib/contratacion/modificaciones"
+import { hashearPassword } from "@/lib/tenant-auth"
+import { obtenerSecretoTenant } from "@/lib/tenant-secretos"
+import { redactarInformeSupervisor } from "@/lib/ia/redactar-informe"
 
 // Acciones de CONTRATACIÓN (Ley 80/1150). Máquina de estados con gating REAL POR PERSONA: la
 // capacidad (contratacion:elaborar/revisar_juridica/concepto_juridico/supervisar/aprobar) dice
@@ -341,5 +344,109 @@ export async function crearModificacionAction(_prev: ConState, formData: FormDat
     return { ok: true, mensaje: `Otrosí registrado en ${contrato.numero}.` }
   } catch {
     return { ok: false, error: "Error al registrar la modificación." }
+  }
+}
+
+// ───────────────────── Supervisión de ejecución (actividades + informes con IA) ─────────────────────
+
+export async function crearActividadAction(_prev: ConState, formData: FormData): Promise<ConState> {
+  const ctx = await requerirFuncionario()
+  if (!(await funcionarioPuede(ctx, MODULO, "elaborar"))) return { ok: false, error: "No tienes la capacidad para definir actividades del contrato." }
+
+  const contratoId = String(formData.get("contratoId") ?? "").trim()
+  const descripcion = String(formData.get("descripcion") ?? "").trim()
+  if (!contratoId || !descripcion) return { ok: false, error: "Contrato y descripción son obligatorios." }
+
+  try {
+    const ultima = await ctx.db.contratoActividad.findFirst({ where: { contratoId }, orderBy: { orden: "desc" } })
+    await ctx.db.contratoActividad.create({ data: { contratoId, descripcion, orden: (ultima?.orden ?? 0) + 1 } })
+    revalidatePath("/admin/contratacion")
+    return { ok: true, mensaje: "Actividad agregada." }
+  } catch {
+    return { ok: false, error: "Error al agregar la actividad (¿contrato válido?)." }
+  }
+}
+
+/**
+ * Da acceso al portal (/contratista) al Tercero de un contrato: crea o reutiliza su Usuario con
+ * rol CONTRATISTA vinculado por terceroId, y le fija la contraseña indicada. Mismo patrón de
+ * "contraseña de prueba fijada por administrador" usado en fase de construcción — en producción
+ * el propio contratista la cambiaría (fuera de alcance de este bloque).
+ */
+export async function crearAccesoContratistaAction(_prev: ConState, formData: FormData): Promise<ConState> {
+  const ctx = await requerirFuncionario()
+  if (!(await funcionarioPuede(ctx, MODULO, "elaborar")) && !(await funcionarioPuede(ctx, MODULO, "aprobar"))) {
+    return { ok: false, error: "No tienes la capacidad para dar acceso al portal del contratista." }
+  }
+
+  const terceroId = String(formData.get("terceroId") ?? "").trim()
+  const email = String(formData.get("email") ?? "").trim().toLowerCase()
+  const password = String(formData.get("password") ?? "")
+  if (!terceroId || !email || !password) return { ok: false, error: "Tercero, correo y contraseña son obligatorios." }
+  if (password.length < 10) return { ok: false, error: "La contraseña debe tener al menos 10 caracteres." }
+
+  const tercero = await ctx.db.tercero.findUnique({ where: { id: terceroId } })
+  if (!tercero) return { ok: false, error: "Tercero no encontrado." }
+
+  try {
+    const passwordHash = await hashearPassword(password)
+    const [nombre, ...resto] = tercero.razonSocial.split(" ")
+    await ctx.db.usuario.upsert({
+      where: { email },
+      create: { email, nombre: nombre || tercero.razonSocial, apellido: resto.join(" ") || "-", rol: "CONTRATISTA", terceroId, passwordHash },
+      update: { rol: "CONTRATISTA", terceroId, passwordHash, activo: true },
+    })
+    revalidatePath("/admin/contratacion")
+    return { ok: true, mensaje: `Acceso al portal creado para ${tercero.razonSocial} (${email}).` }
+  } catch (e) {
+    const msg = e instanceof Error && e.message.includes("Unique") ? `Ya existe un usuario con el correo "${email}".` : "Error al crear el acceso."
+    return { ok: false, error: msg }
+  }
+}
+
+export async function decidirInformeAction(_prev: ConState, formData: FormData): Promise<ConState> {
+  const ctx = await requerirFuncionario()
+  const puedeSupervisar = await funcionarioPuede(ctx, MODULO, "supervisar")
+  const puedeAprobar = await funcionarioPuede(ctx, MODULO, "aprobar")
+  if (!puedeSupervisar && !puedeAprobar) return { ok: false, error: "No tienes la capacidad para decidir sobre informes de supervisión." }
+
+  const informeId = String(formData.get("informeId") ?? "").trim()
+  const decision = String(formData.get("decision") ?? "").trim()
+  const observaciones = String(formData.get("observaciones") ?? "").trim()
+  if (!informeId) return { ok: false, error: "Selecciona un informe." }
+  if (decision !== "APROBADO" && decision !== "DEVUELTO") return { ok: false, error: "Decisión inválida." }
+  if (decision === "DEVUELTO" && observaciones.length < 5) return { ok: false, error: "Las observaciones de devolución deben tener al menos 5 caracteres." }
+
+  const informe = await ctx.db.informeSupervision.findUnique({
+    where: { id: informeId },
+    include: { contrato: { include: { tercero: true } }, actividades: { include: { actividad: true } } },
+  })
+  if (!informe) return { ok: false, error: "Informe no encontrado." }
+  if (informe.estado !== "ENVIADO") return { ok: false, error: "Solo se puede decidir sobre un informe ENVIADO." }
+
+  let textoSupervisorIA: string | null = null
+  if (decision === "APROBADO") {
+    const credencial = await obtenerSecretoTenant(ctx.tenant.id, "ia")
+    if (!credencial) return { ok: false, error: "La entidad no tiene configurada su credencial de IA (Superadmin → tenant) — no se puede generar el informe del supervisor." }
+    const actividadesTexto = informe.actividades.map((a) => ({ descripcion: a.actividad.descripcion, textoContratista: a.textoIA ?? a.descripcionContratista }))
+    textoSupervisorIA = await redactarInformeSupervisor(informe.contrato.tercero.razonSocial, informe.contrato.numero, actividadesTexto, credencial)
+    if (!textoSupervisorIA) return { ok: false, error: "La IA no pudo generar el informe del supervisor — intenta de nuevo." }
+  }
+
+  try {
+    await ctx.db.informeSupervision.update({
+      where: { id: informeId },
+      data: {
+        estado: decision as never,
+        observaciones: observaciones || null,
+        decididoPor: ctx.sesion.usuarioId,
+        fechaDecision: new Date(),
+        textoSupervisorIA: textoSupervisorIA ?? undefined,
+      },
+    })
+    revalidatePath("/admin/contratacion")
+    return { ok: true, mensaje: `Informe ${informe.numero} de ${informe.contrato.numero} → ${decision}.` }
+  } catch {
+    return { ok: false, error: "Error al decidir sobre el informe." }
   }
 }

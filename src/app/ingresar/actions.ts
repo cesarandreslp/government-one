@@ -29,6 +29,7 @@ export async function ingresarAction(_prev: IngresarState, formData: FormData): 
   }
 
   await crearSesionTenant({ tenantId: ctx.tenant.id, ...funcionario })
+  if (funcionario.rol === "CONTRATISTA") redirect("/contratista")
   redirect(next.startsWith("/admin") ? next : "/admin/estructura")
 }
 

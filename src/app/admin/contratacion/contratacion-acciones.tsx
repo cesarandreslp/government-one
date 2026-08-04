@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react"
 import {
   crearContratoAction, enviarRevisionAction, asignarAbogadoAction, responderRevisionAction, registrarRpAction, avanzarSimpleAction,
   crearGarantiaAction, decidirGarantiaAction, crearModificacionAction,
+  crearActividadAction, crearAccesoContratistaAction, decidirInformeAction,
   type ConState,
 } from "./actions"
 
@@ -28,13 +29,20 @@ interface Modificacion {
   id: string; numero: number; tipo: string; valorAdicion: number | null; diasProrroga: number | null
   justificacion: string; fecha: string
 }
+interface Actividad { id: string; descripcion: string }
+interface InformeActividadDTO { actividadDescripcion: string; descripcionContratista: string; evidenciaUrl: string | null; textoIA: string | null }
+interface InformeSupervisionDTO {
+  id: string; numero: number; periodo: string; estado: string; observaciones: string | null
+  textoSupervisorIA: string | null; actividades: InformeActividadDTO[]
+}
 interface ContratoDTO {
   id: string; numero: string; objeto: string; modalidad: string; estado: string
   valorContrato: number; valorVigente: number; plazoVigente: number | null
-  tercero: string; estructuradorId: string | null; estructuradorNombre: string | null
+  tercero: string; terceroId: string; estructuradorId: string | null; estructuradorNombre: string | null
   abogadoAsignadoId: string | null; abogadoNombre: string | null
   rpNumero: string | null; proyectoCodigo: string | null; versiones: Version[]
   garantias: Garantia[]; modificaciones: Modificacion[]
+  actividades: Actividad[]; informesSupervision: InformeSupervisionDTO[]
 }
 
 interface Props {
@@ -57,6 +65,12 @@ const ESTADO_GARANTIA_COLOR: Record<string, string> = {
   PENDIENTE: "bg-amber-100 text-amber-800",
   APROBADA: "bg-emerald-100 text-emerald-800",
   RECHAZADA: "bg-red-100 text-red-700",
+}
+const ESTADO_INFORME_COLOR: Record<string, string> = {
+  BORRADOR: "bg-slate-100 text-slate-700",
+  ENVIADO: "bg-amber-100 text-amber-800",
+  DEVUELTO: "bg-red-100 text-red-700",
+  APROBADO: "bg-emerald-100 text-emerald-800",
 }
 
 const inicial: ConState = {}
@@ -175,6 +189,9 @@ function FilaContrato({ contrato: c, usuarioId, esAdmin, puedeElaborar, puedeRev
   const [garantiaState, garantiaAction, garantiaPend] = useActionState(crearGarantiaAction, inicial)
   const [decidirState, decidirAction, decidirPend] = useActionState(decidirGarantiaAction, inicial)
   const [modState, modAction, modPend] = useActionState(crearModificacionAction, inicial)
+  const [actividadState, actividadAction, actividadPend] = useActionState(crearActividadAction, inicial)
+  const [accesoState, accesoAction, accesoPend] = useActionState(crearAccesoContratistaAction, inicial)
+  const [decidirInformeState, decidirInformeActionForm, decidirInformePend] = useActionState(decidirInformeAction, inicial)
 
   const [contenido, setContenido] = useState("")
   const [observaciones, setObservaciones] = useState("")
@@ -394,6 +411,81 @@ function FilaContrato({ contrato: c, usuarioId, esAdmin, puedeElaborar, puedeRev
               </form>
             )}
             <Mensaje state={modState} />
+          </div>
+        )}
+
+        {(c.estado === "EN_EJECUCION" || c.estado === "SUSPENDIDO" || c.actividades.length > 0) && (
+          <div className="border-t border-slate-100 pt-3">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Supervisión de ejecución</div>
+
+            {c.actividades.length === 0 ? (
+              <p className="text-xs text-slate-400">Sin actividades definidas.</p>
+            ) : (
+              <ul className="mb-2 flex flex-wrap gap-1">
+                {c.actividades.map((a) => (
+                  <li key={a.id} className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{a.descripcion}</li>
+                ))}
+              </ul>
+            )}
+
+            {(esAdmin || puedeElaborar) && (
+              <form action={actividadAction} className="flex flex-wrap gap-2">
+                <input type="hidden" name="contratoId" value={c.id} />
+                <input name="descripcion" required placeholder="Nueva actividad/obligación del contrato" className={`${INPUT} max-w-md`} />
+                <button type="submit" disabled={actividadPend} className={BTN_SEC}>{actividadPend ? "…" : "Agregar actividad"}</button>
+              </form>
+            )}
+            <Mensaje state={actividadState} />
+
+            {(esAdmin || puedeElaborar) && (
+              <form action={accesoAction} className="mt-2 grid gap-2 border-t border-slate-100 pt-2 sm:grid-cols-3">
+                <input type="hidden" name="terceroId" value={c.terceroId} />
+                <input name="email" type="email" required placeholder={`Correo de ${c.tercero}`} className={INPUT} />
+                <input name="password" type="password" required minLength={10} placeholder="Contraseña (mín. 10 caracteres)" className={INPUT} />
+                <button type="submit" disabled={accesoPend} className={BTN_SEC}>{accesoPend ? "…" : "Dar acceso al portal"}</button>
+              </form>
+            )}
+            <Mensaje state={accesoState} />
+
+            {c.informesSupervision.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {c.informesSupervision.map((i) => (
+                  <div key={i.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-slate-700">Informe N.° {i.numero} · {i.periodo}</span>
+                      <span className={`rounded-full px-2 py-0.5 font-medium ${ESTADO_INFORME_COLOR[i.estado]}`}>{i.estado}</span>
+                    </div>
+                    {i.actividades.length > 0 && (
+                      <ul className="mt-1 space-y-1">
+                        {i.actividades.map((a) => (
+                          <li key={a.actividadDescripcion} className="text-slate-500">
+                            <span className="font-medium text-slate-600">{a.actividadDescripcion}:</span> {a.textoIA ?? a.descripcionContratista}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {i.observaciones && <p className="mt-1 text-slate-500">Obs.: {i.observaciones}</p>}
+                    {i.textoSupervisorIA && (
+                      <details className="mt-1">
+                        <summary className="cursor-pointer text-slate-500">Ver informe del supervisor</summary>
+                        <p className="mt-1 whitespace-pre-wrap text-slate-600">{i.textoSupervisorIA}</p>
+                      </details>
+                    )}
+                    {i.estado === "ENVIADO" && (esAdmin || puedeSupervisar || puedeAprobar) && (
+                      <form action={decidirInformeActionForm} className="mt-2 grid gap-2">
+                        <input type="hidden" name="informeId" value={i.id} />
+                        <input type="text" name="observaciones" placeholder="Observaciones (obligatorio si devuelves)" className={INPUT} />
+                        <div className="flex gap-2">
+                          <button type="submit" name="decision" value="APROBADO" disabled={decidirInformePend} className="rounded border border-emerald-300 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">Aprobar</button>
+                          <button type="submit" name="decision" value="DEVUELTO" disabled={decidirInformePend} className="rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50">Devolver</button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <Mensaje state={decidirInformeState} />
           </div>
         )}
 

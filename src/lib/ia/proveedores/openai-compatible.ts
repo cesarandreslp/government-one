@@ -66,3 +66,24 @@ export async function llamarOpenAiCompatible(
     clearTimeout(timeout)
   }
 }
+
+/** Generación de texto libre (sin tool-calling) — redacción de informes, no clasificación. */
+export async function generarTextoOpenAiCompatible(config: ConfigOpenAiCompatible, prompt: string, apiKey: string): Promise<string | null> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  try {
+    const res = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
+      body: JSON.stringify({ model: config.modelo, temperature: 0.4, messages: [{ role: "user", content: prompt }] }),
+      signal: controller.signal,
+    })
+    if (!res.ok) return null
+    const data = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> }
+    return data.choices?.[0]?.message?.content?.trim() || null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}

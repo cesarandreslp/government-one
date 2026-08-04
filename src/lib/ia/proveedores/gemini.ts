@@ -59,3 +59,26 @@ export async function llamarGemini(
     clearTimeout(timeout)
   }
 }
+
+/** Generación de texto libre (sin tool-calling) — redacción de informes, no clasificación. */
+export async function generarTextoGemini(prompt: string, apiKey: string): Promise<string | null> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent?key=${apiKey}`
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.4 } }),
+      signal: controller.signal,
+    })
+    if (!res.ok) return null
+    const data = (await res.json()) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+    const texto = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("")
+    return texto?.trim() || null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}
