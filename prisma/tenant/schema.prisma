@@ -550,6 +550,7 @@ model Tercero {
   ahiEntregas AhiEntrega[]
   registrosDiscapacidad RegistroDiscapacidad[]
   beneficiosAdultoMayor BeneficiarioAdultoMayor[]
+  garantiasAseguradas   Garantia[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1023,6 +1024,8 @@ model Contrato {
   creadoPor        String?
 
   versiones ContratoVersion[]
+  garantias Garantia[]
+  modificaciones ModificacionContrato[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1032,6 +1035,81 @@ model Contrato {
   @@index([estructuradorId])
   @@index([abogadoAsignadoId])
   @@map("con_contratos")
+}
+
+// ───────────────────── Contratación: GARANTÍAS (pólizas) ─────────────────────
+// Ley 80/1150 + Decreto 1082/2015: el contratista constituye garantías que la entidad debe
+// APROBAR antes de que el contrato pueda iniciar ejecución (ver el gate en
+// avanzarSimpleAction/SUSCRITO→EN_EJECUCION). La aseguradora REUSA `Tercero` (es un externo más).
+
+enum TipoGarantia {
+  CUMPLIMIENTO
+  CALIDAD
+  PAGO_SALARIOS_PRESTACIONES
+  RESPONSABILIDAD_CIVIL_EXTRACONTRACTUAL
+  BUEN_MANEJO_ANTICIPO
+  OTRA
+}
+
+enum EstadoGarantia {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+}
+
+model Garantia {
+  id              String         @id @default(cuid())
+  contratoId      String
+  contrato        Contrato       @relation(fields: [contratoId], references: [id])
+  tipo            TipoGarantia
+  aseguradoraId   String
+  aseguradora     Tercero        @relation(fields: [aseguradoraId], references: [id])
+  numeroPoliza    String
+  valorAsegurado  Decimal        @db.Decimal(18, 2)
+  vigenciaDesde   DateTime
+  vigenciaHasta   DateTime
+  estado          EstadoGarantia @default(PENDIENTE)
+  observaciones   String?
+  aprobadoPor     String?
+  fechaAprobacion DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contratoId])
+  @@map("con_garantias")
+}
+
+// ───────────────────── Contratación: ADICIONES Y PRÓRROGAS ─────────────────────
+// Insert-only (como ProyectoHitoReporte) — cada Otrosí queda como registro propio, nunca se
+// sobreescribe el contrato. `Contrato.valorContrato`/`plazoDias` se mantienen como el valor
+// ORIGINAL (inmutable); el valor/plazo VIGENTE se deriva sumando las modificaciones (ver
+// src/lib/contratacion/modificaciones.ts) — evita que la regla del 50% (Ley 80 art. 40 parágrafo)
+// pierda su línea base si el valor original se sobreescribiera.
+
+enum TipoModificacionContrato {
+  ADICION
+  PRORROGA
+  ADICION_Y_PRORROGA
+}
+
+model ModificacionContrato {
+  id            String                   @id @default(cuid())
+  contratoId    String
+  contrato      Contrato                 @relation(fields: [contratoId], references: [id])
+  numero        Int // Otrosí No. 1, 2... consecutivo por contrato
+  tipo          TipoModificacionContrato
+  valorAdicion  Decimal?                 @db.Decimal(18, 2) // null si es solo PRORROGA
+  diasProrroga  Int? // null si es solo ADICION
+  justificacion String
+  fecha         DateTime
+  aprobadoPor   String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([contratoId, numero])
+  @@index([contratoId])
+  @@map("con_modificaciones")
 }
 
 /// Versión insert-only del contenido/revisión — cada borrador de estructuración y cada

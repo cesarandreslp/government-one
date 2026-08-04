@@ -9,6 +9,7 @@ import { prismaMeta } from "../src/lib/prisma-meta"
 import { getTenantPrisma } from "../src/lib/tenant-db"
 import { tieneCapacidad } from "../src/lib/dominio/acceso"
 import { puedeAvanzarContrato, type EstadoContrato } from "../src/lib/contratacion/flujo"
+import { valorVigente, plazoVigente, validarTopeAdicion } from "../src/lib/contratacion/modificaciones"
 
 function assert(cond: boolean, msg: string) {
   console.log(`${cond ? "✅" : "❌"} ${msg}`)
@@ -53,9 +54,13 @@ async function main() {
   )
 
   // ── B) Punta a punta contra la BD real, con personas y presupuesto reales del tenant ───
-  const beatriz = await db.usuario.findFirst({ where: { nombre: "Beatriz" } })
-  if (!beatriz) throw new Error("no existe Beatriz Torres — correr verify-dominio.ts / Paso A primero")
-  assert(await tieneCapacidad(db, beatriz.id, "contratacion", "elaborar"), "Beatriz Torres tiene capacidad contratacion:elaborar vía su encargo de Planeación")
+  // Eliana Gómez (Profesional de Contratación — Planeación) es quien hoy tiene contratacion:elaborar
+  // (antes era Beatriz Torres vía un encargo de Planeación — dejó de tenerlo tras la reestructura
+  // de Planeación en sub-dependencias, commit `e62aacc`; Beatriz ahora es Secretaria de Planeación,
+  // sin esa capacidad).
+  const eliana = await db.usuario.findFirst({ where: { nombre: "Eliana" } })
+  if (!eliana) throw new Error("no existe Eliana Gómez (Profesional de Contratación — Planeación) — correr la reestructura de Planeación primero")
+  assert(await tieneCapacidad(db, eliana.id, "contratacion", "elaborar"), "Eliana Gómez tiene capacidad contratacion:elaborar (Profesional de Contratación — Planeación)")
 
   const cargoJuridico = await db.cargo.findFirst({ where: { nombre: "Profesional Jurídico" } })
   if (!cargoJuridico) throw new Error("no existe el cargo 'Profesional Jurídico' — correr la siembra de la plantilla ALCALDIA")
@@ -94,13 +99,13 @@ async function main() {
     const cons = await tx.contratoConsecutivo.upsert({ where: { vigencia }, create: { vigencia, ultimo: 1 }, update: { ultimo: { increment: 1 } } })
     const numero = `C-${vigencia}-${String(cons.ultimo).padStart(3, "0")}`
     return tx.contrato.create({
-      data: { numero, vigencia, objeto: "Verificación en vivo de Contratación", modalidad: "CONTRATACION_DIRECTA", valorContrato, terceroId: tercero.id, estructuradorId: beatriz.id },
+      data: { numero, vigencia, objeto: "Verificación en vivo de Contratación", modalidad: "CONTRATACION_DIRECTA", valorContrato, terceroId: tercero.id, estructuradorId: eliana.id },
     })
   })
   assert(/^C-\d{4}-\d{3}$/.test(contrato.numero) && contrato.estado === "BORRADOR", `Contrato creado: ${contrato.numero} (BORRADOR, sin RP todavía)`)
 
   await db.$transaction(async (tx) => {
-    await tx.contratoVersion.create({ data: { contratoId: contrato.id, numeroVersion: 1, tipo: "BORRADOR_ESTRUCTURACION", contenido: "Estudios previos y minuta del contrato (verificación).", autorId: beatriz.id } })
+    await tx.contratoVersion.create({ data: { contratoId: contrato.id, numeroVersion: 1, tipo: "BORRADOR_ESTRUCTURACION", contenido: "Estudios previos y minuta del contrato (verificación).", autorId: eliana.id } })
     await tx.contrato.update({ where: { id: contrato.id }, data: { estado: "EN_REVISION_JURIDICA", abogadoAsignadoId: abogado.id } })
   })
   await db.$transaction(async (tx) => {
@@ -123,9 +128,39 @@ async function main() {
   assert(final?.versiones.length === 2, "quedaron 2 versiones (borrador de estructuración + revisión jurídica aprobada)")
 
   console.log(`\nCadena completa: ${contrato.numero} BORRADOR → EN_REVISION_JURIDICA → PERFECCIONADO → RP_REGISTRADO (${rp.numero}) → SUSCRITO → EN_EJECUCION`)
+
+  // ── C) Garantías + adiciones/prórrogas (pura + contra el contrato real recién creado) ──────
+  assert(validarTopeAdicion(valorContrato, [], valorContrato * 0.5) === null, "una adición exacta al 50% del valor inicial es válida")
+  assert(validarTopeAdicion(valorContrato, [], valorContrato * 0.5 + 1) !== null, "una adición que supera el 50% del valor inicial se rechaza")
+  assert(
+    validarTopeAdicion(valorContrato, [{ valorAdicion: valorContrato * 0.3, diasProrroga: null }], valorContrato * 0.3) !== null,
+    "el tope del 50% se aplica sobre el ACUMULADO de adiciones previas, no solo la nueva",
+  )
+  assert(valorVigente(valorContrato, [{ valorAdicion: 1_000_000, diasProrroga: null }, { valorAdicion: 500_000, diasProrroga: null }]) === valorContrato + 1_500_000, "valorVigente suma todas las adiciones sobre el valor original")
+  assert(plazoVigente(90, [{ valorAdicion: null, diasProrroga: 15 }, { valorAdicion: null, diasProrroga: 10 }]) === 115, "plazoVigente suma todos los días de prórroga")
+  assert(plazoVigente(null, []) === null, "sin plazoDias original, plazoVigente es null (no aplica)")
+
+  const aseguradora = await db.tercero.findFirst({ where: { id: { not: tercero.id } } }) ?? tercero
+  const garantia = await db.garantia.create({
+    data: {
+      contratoId: contrato.id, tipo: "CUMPLIMIENTO", aseguradoraId: aseguradora.id, numeroPoliza: "POL-VERIF-001",
+      valorAsegurado: valorContrato * 0.1, vigenciaDesde: new Date(), vigenciaHasta: new Date(Date.now() + 365 * 24 * 3600 * 1000),
+    },
+  })
+  assert(garantia.estado === "PENDIENTE", "la garantía nace PENDIENTE")
+  const garantiaAprobada = await db.garantia.update({ where: { id: garantia.id }, data: { estado: "APROBADA", aprobadoPor: eliana.id, fechaAprobacion: new Date() } })
+  assert(garantiaAprobada.estado === "APROBADA", "la garantía se puede aprobar")
+
+  const modificacion = await db.modificacionContrato.create({
+    data: { contratoId: contrato.id, numero: 1, tipo: "ADICION_Y_PRORROGA", valorAdicion: 1_000_000, diasProrroga: 30, justificacion: "Mayor cantidad de obra requerida (verificación).", aprobadoPor: eliana.id, fecha: new Date() },
+  })
+  assert(modificacion.numero === 1, "el primer Otrosí del contrato queda numerado como 1")
+  const modsDelContrato = await db.modificacionContrato.findMany({ where: { contratoId: contrato.id } })
+  assert(modsDelContrato.length === 1, "el Otrosí quedó asociado al contrato")
+
   await db.$disconnect()
   await prismaMeta.$disconnect()
-  console.log(process.exitCode ? "\n❌ HUBO FALLOS" : "\n✅ CONTRATACIÓN: verificado en vivo (máquina de estados + gating por persona + respaldo presupuestal obligatorio)")
+  console.log(process.exitCode ? "\n❌ HUBO FALLOS" : "\n✅ CONTRATACIÓN: verificado en vivo (máquina de estados + gating por persona + respaldo presupuestal + garantías + adiciones/prórrogas con tope legal 50%)")
 }
 
 main().catch((e) => { console.error("❌ Falló:", e); process.exit(1) })

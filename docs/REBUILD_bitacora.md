@@ -1515,3 +1515,47 @@ el mismo cargo, ahora con `adulto_mayor:consultar/administrar` además de `venta
 María Fernanda Ospina (persona ya creada en Participación Ciudadana — confirma reuso de `Tercero`
 entre secretarías distintas) con certificado generado correctamente; beneficiario de Colombia Mayor
 para "Contribuyente de prueba S.A.S." POSTULADO → ACTIVO.
+
+## Progreso — Contratación: Garantías + Adiciones/Prórrogas (2026-08-04)
+
+Primer bloque de 4 en la cola de "terminar Financiero y Contratación" (orden fijado por el
+usuario: garantías+adiciones/prórrogas → supervisión+actas → Inventario/Almacén → cierre de
+periodo contable). Cierra 2 huecos reales de Ley 80/1150 sobre el ciclo de vida ya construido.
+
+**Garantías** (`Garantia`) — pólizas (cumplimiento, calidad, pago de salarios/prestaciones,
+responsabilidad civil extracontractual, buen manejo de anticipo), aseguradora REUSA `Tercero`.
+Estado PENDIENTE→APROBADA/RECHAZADA. **Gate real nuevo**: `avanzarSimpleAction` (acción
+`iniciar_ejecucion`, SUSCRITO→EN_EJECUCION) ahora exige que TODAS las garantías del contrato estén
+APROBADA — sin esto la entidad quedaría sin amparo si el contratista incumple.
+
+**Adiciones y prórrogas** (`ModificacionContrato`, insert-only, Otrosí numerado por contrato) —
+`Contrato.valorContrato`/`plazoDias` se mantienen como el valor ORIGINAL inmutable; el valor/plazo
+VIGENTE se deriva sumando las modificaciones (`src/lib/contratacion/modificaciones.ts`) para no
+perder la línea base del **tope legal del 50%** (Ley 80 art. 40 parágrafo) si el original se
+sobreescribiera. Solo aplica a contratos EN_EJECUCION/SUSPENDIDO.
+
+**Hueco de cobertura de tests encontrado de paso:** `scripts/verify-contratacion.ts` Parte B
+recorre la máquina de estados completa con `db.contrato.update({ data: { estado: ... } })`
+directo — NUNCA pasa por las Server Actions reales (`avanzarSimpleAction`, etc.), así que el gate
+nuevo de garantías nunca se ejerce por el script. Se verificó exclusivamente en vivo por UI real
+(ver abajo) — dejar anotado que el script de contratación prueba la máquina de estados pura, no
+las acciones del servidor.
+
+**Hueco de datos de prueba encontrado y corregido:** la aserción "Beatriz Torres tiene capacidad
+contratacion:elaborar" en `verify-contratacion.ts` estaba rota desde la reestructura de Planeación
+(commit `e62aacc`, 2026-07-27) — Beatriz quedó como Secretaria de Planeación (encargada) sin esa
+capacidad; quien la tiene hoy es Eliana Gómez (Profesional de Contratación — Planeación). Corregido
+en el script (era un hueco de mantenimiento, no algo introducido ahora).
+
+**Verificado en vivo end-to-end por UI real** (no solo script) contra el tenant demo: contrato
+nuevo C-2026-006 recorrido a mano BORRADOR→...→SUSCRITO; clic en "Iniciar ejecución" **sin
+garantías** → bloqueado ("El contrato no tiene garantías registradas"); se registró una garantía
+→ sigue bloqueado en PENDIENTE ("Hay 1 garantía(s) sin aprobar"); se aprobó → "Iniciar ejecución"
+funcionó (contador de "en ejecución" subió de 5 a 6). Las 3 transiciones del gate quedaron
+probadas una por una, no solo el camino feliz.
+
+**Nota para retomar el bloque 2 (supervisión + actas):** el usuario dio la especificación completa
+del flujo de informes de ejecución con IA (contratista describe actividad → IA genera informe en
+1ra persona, mín. 3 párrafos de 8 líneas → supervisor aprueba/devuelve, mismo patrón que
+`responderRevisionAction` → IA genera informe del supervisor en 3ra persona) — queda guardada en
+memoria de proyecto (`project-supervision-informes-ia`), no repetir la pregunta.

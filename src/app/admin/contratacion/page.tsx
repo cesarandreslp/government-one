@@ -1,5 +1,6 @@
 import { requerirFuncionario, funcionarioPuede, ROLES_ADMIN_TENANT } from "@/lib/dal-tenant"
 import { usuariosConCapacidad, alcanceDependencias, usuariosDeAlcance } from "@/lib/dominio/acceso"
+import { valorVigente, plazoVigente } from "@/lib/contratacion/modificaciones"
 import { ContratacionAcciones } from "./contratacion-acciones"
 
 export const dynamic = "force-dynamic"
@@ -40,6 +41,8 @@ export default async function ContratacionPage() {
         tercero: true, estructurador: true, abogadoAsignado: true,
         versiones: { orderBy: { numeroVersion: "desc" } },
         rp: { include: { cdp: { include: { proyecto: true } } } },
+        garantias: { include: { aseguradora: true }, orderBy: { createdAt: "asc" } },
+        modificaciones: { orderBy: { numero: "asc" } },
       },
     }),
     db.tercero.findMany({ orderBy: { razonSocial: "asc" } }),
@@ -99,25 +102,40 @@ export default async function ContratacionPage() {
         rpsDisponibles={rpsDisponibles.map((r) => ({ id: r.id, etiqueta: `${r.numero} · $${Number(r.valor).toLocaleString("es-CO")}` }))}
         estructuradores={estructuradores.map((u) => ({ id: u.id, etiqueta: `${u.nombre} ${u.apellido}` }))}
         abogados={abogados.map((u) => ({ id: u.id, etiqueta: `${u.nombre} ${u.apellido}` }))}
-        contratos={contratos.map((c) => ({
-          id: c.id,
-          numero: c.numero,
-          objeto: c.objeto,
-          modalidad: c.modalidad,
-          estado: c.estado,
-          valorContrato: Number(c.valorContrato),
-          tercero: c.tercero.razonSocial,
-          estructuradorId: c.estructuradorId,
-          estructuradorNombre: c.estructurador ? `${c.estructurador.nombre} ${c.estructurador.apellido}` : null,
-          abogadoAsignadoId: c.abogadoAsignadoId,
-          abogadoNombre: c.abogadoAsignado ? `${c.abogadoAsignado.nombre} ${c.abogadoAsignado.apellido}` : null,
-          rpNumero: c.rp?.numero ?? null,
-          proyectoCodigo: c.rp?.cdp.proyecto?.codigo ?? null,
-          versiones: c.versiones.map((v) => ({
-            id: v.id, numeroVersion: v.numeroVersion, tipo: v.tipo, aprobado: v.aprobado,
-            contenido: v.contenido, observaciones: v.observaciones, createdAt: v.createdAt.toISOString(),
-          })),
-        }))}
+        contratos={contratos.map((c) => {
+          const mods = c.modificaciones.map((m) => ({ valorAdicion: m.valorAdicion ? Number(m.valorAdicion) : null, diasProrroga: m.diasProrroga }))
+          return {
+            id: c.id,
+            numero: c.numero,
+            objeto: c.objeto,
+            modalidad: c.modalidad,
+            estado: c.estado,
+            valorContrato: Number(c.valorContrato),
+            valorVigente: valorVigente(Number(c.valorContrato), mods),
+            plazoVigente: plazoVigente(c.plazoDias, mods),
+            tercero: c.tercero.razonSocial,
+            estructuradorId: c.estructuradorId,
+            estructuradorNombre: c.estructurador ? `${c.estructurador.nombre} ${c.estructurador.apellido}` : null,
+            abogadoAsignadoId: c.abogadoAsignadoId,
+            abogadoNombre: c.abogadoAsignado ? `${c.abogadoAsignado.nombre} ${c.abogadoAsignado.apellido}` : null,
+            rpNumero: c.rp?.numero ?? null,
+            proyectoCodigo: c.rp?.cdp.proyecto?.codigo ?? null,
+            versiones: c.versiones.map((v) => ({
+              id: v.id, numeroVersion: v.numeroVersion, tipo: v.tipo, aprobado: v.aprobado,
+              contenido: v.contenido, observaciones: v.observaciones, createdAt: v.createdAt.toISOString(),
+            })),
+            garantias: c.garantias.map((g) => ({
+              id: g.id, tipo: g.tipo, aseguradora: g.aseguradora.razonSocial, numeroPoliza: g.numeroPoliza,
+              valorAsegurado: Number(g.valorAsegurado), vigenciaDesde: g.vigenciaDesde.toISOString().slice(0, 10),
+              vigenciaHasta: g.vigenciaHasta.toISOString().slice(0, 10), estado: g.estado, observaciones: g.observaciones,
+            })),
+            modificaciones: c.modificaciones.map((m) => ({
+              id: m.id, numero: m.numero, tipo: m.tipo,
+              valorAdicion: m.valorAdicion ? Number(m.valorAdicion) : null, diasProrroga: m.diasProrroga,
+              justificacion: m.justificacion, fecha: m.fecha.toISOString().slice(0, 10),
+            })),
+          }
+        })}
       />
     </main>
   )

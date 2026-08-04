@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react"
 import {
   crearContratoAction, enviarRevisionAction, asignarAbogadoAction, responderRevisionAction, registrarRpAction, avanzarSimpleAction,
+  crearGarantiaAction, decidirGarantiaAction, crearModificacionAction,
   type ConState,
 } from "./actions"
 
@@ -19,11 +20,21 @@ interface Version {
   id: string; numeroVersion: number; tipo: string; aprobado: boolean | null
   contenido: string | null; observaciones: string | null; createdAt: string
 }
+interface Garantia {
+  id: string; tipo: string; aseguradora: string; numeroPoliza: string; valorAsegurado: number
+  vigenciaDesde: string; vigenciaHasta: string; estado: string; observaciones: string | null
+}
+interface Modificacion {
+  id: string; numero: number; tipo: string; valorAdicion: number | null; diasProrroga: number | null
+  justificacion: string; fecha: string
+}
 interface ContratoDTO {
-  id: string; numero: string; objeto: string; modalidad: string; estado: string; valorContrato: number
+  id: string; numero: string; objeto: string; modalidad: string; estado: string
+  valorContrato: number; valorVigente: number; plazoVigente: number | null
   tercero: string; estructuradorId: string | null; estructuradorNombre: string | null
   abogadoAsignadoId: string | null; abogadoNombre: string | null
   rpNumero: string | null; proyectoCodigo: string | null; versiones: Version[]
+  garantias: Garantia[]; modificaciones: Modificacion[]
 }
 
 interface Props {
@@ -39,6 +50,13 @@ interface Props {
   estructuradores: Opcion[]
   abogados: Opcion[]
   contratos: ContratoDTO[]
+}
+
+const TIPOS_GARANTIA = ["CUMPLIMIENTO", "CALIDAD", "PAGO_SALARIOS_PRESTACIONES", "RESPONSABILIDAD_CIVIL_EXTRACONTRACTUAL", "BUEN_MANEJO_ANTICIPO", "OTRA"]
+const ESTADO_GARANTIA_COLOR: Record<string, string> = {
+  PENDIENTE: "bg-amber-100 text-amber-800",
+  APROBADA: "bg-emerald-100 text-emerald-800",
+  RECHAZADA: "bg-red-100 text-red-700",
 }
 
 const inicial: ConState = {}
@@ -148,17 +166,21 @@ export function ContratacionAcciones(props: Props) {
   )
 }
 
-function FilaContrato({ contrato: c, usuarioId, esAdmin, puedeElaborar, puedeRevisarJuridica, puedeConceptoJuridico, puedeAprobar, puedeSupervisar, abogados, rpsDisponibles }: Props & { contrato: ContratoDTO }) {
+function FilaContrato({ contrato: c, usuarioId, esAdmin, puedeElaborar, puedeRevisarJuridica, puedeConceptoJuridico, puedeAprobar, puedeSupervisar, abogados, rpsDisponibles, terceros }: Props & { contrato: ContratoDTO }) {
   const [enviarState, enviarAction, enviarPend] = useActionState(enviarRevisionAction, inicial)
   const [asignarState, asignarAction, asignarPend] = useActionState(asignarAbogadoAction, inicial)
   const [responderState, responderAction, responderPend] = useActionState(responderRevisionAction, inicial)
   const [registrarRpState, registrarRpActionForm, registrarRpPend] = useActionState(registrarRpAction, inicial)
   const [avanzarState, avanzarAction, avanzarPend] = useActionState(avanzarSimpleAction, inicial)
+  const [garantiaState, garantiaAction, garantiaPend] = useActionState(crearGarantiaAction, inicial)
+  const [decidirState, decidirAction, decidirPend] = useActionState(decidirGarantiaAction, inicial)
+  const [modState, modAction, modPend] = useActionState(crearModificacionAction, inicial)
 
   const [contenido, setContenido] = useState("")
   const [observaciones, setObservaciones] = useState("")
   const [abogadoElegido, setAbogadoElegido] = useState("")
   const [rpElegido, setRpElegido] = useState("")
+  const [tipoMod, setTipoMod] = useState("ADICION")
 
   useResetTrasExito(enviarState, () => setContenido(""))
   useResetTrasExito(responderState, () => setObservaciones(""))
@@ -174,7 +196,10 @@ function FilaContrato({ contrato: c, usuarioId, esAdmin, puedeElaborar, puedeRev
         <div>
           <span className="font-mono text-xs text-slate-500">{c.numero}</span>
           <span className="ml-2 font-medium text-slate-800">{c.objeto}</span>
-          <span className="ml-2 text-xs text-slate-400">{c.tercero} · ${formatMoneda(c.valorContrato)}</span>
+          <span className="ml-2 text-xs text-slate-400">
+            {c.tercero} · ${formatMoneda(c.valorVigente)}
+            {c.valorVigente !== c.valorContrato && <span className="text-emerald-600"> (orig. ${formatMoneda(c.valorContrato)})</span>}
+          </span>
         </div>
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_COLOR[c.estado] ?? "bg-slate-100 text-slate-700"}`}>{c.estado}</span>
       </summary>
@@ -276,6 +301,101 @@ function FilaContrato({ contrato: c, usuarioId, esAdmin, puedeElaborar, puedeRev
           </form>
         )}
         <Mensaje state={avanzarState} />
+
+        {(c.estado === "RP_REGISTRADO" || c.estado === "SUSCRITO" || c.garantias.length > 0) && (
+          <div className="border-t border-slate-100 pt-3">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Garantías</div>
+            {c.garantias.length === 0 ? (
+              <p className="text-xs text-slate-400">Sin garantías registradas.</p>
+            ) : (
+              <ul className="space-y-1">
+                {c.garantias.map((g) => (
+                  <li key={g.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span>{g.tipo} · {g.aseguradora} · póliza {g.numeroPoliza} · ${formatMoneda(g.valorAsegurado)}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${ESTADO_GARANTIA_COLOR[g.estado]}`}>{g.estado}</span>
+                    </div>
+                    <div className="mt-0.5 text-slate-400">Vigencia {g.vigenciaDesde} a {g.vigenciaHasta}</div>
+                    {g.observaciones && <div className="mt-0.5 text-slate-500">{g.observaciones}</div>}
+                    {g.estado === "PENDIENTE" && (esAdmin || puedeAprobar || puedeSupervisar) && (
+                      <form action={decidirAction} className="mt-2 flex flex-wrap items-center gap-2">
+                        <input type="hidden" name="garantiaId" value={g.id} />
+                        <input type="text" name="observaciones" placeholder="Observaciones (opcional)" className="rounded border border-slate-300 px-2 py-1 text-xs" />
+                        <button type="submit" name="decision" value="APROBADA" disabled={decidirPend} className="rounded border border-emerald-300 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">Aprobar</button>
+                        <button type="submit" name="decision" value="RECHAZADA" disabled={decidirPend} className="rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50">Rechazar</button>
+                      </form>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <Mensaje state={decidirState} />
+
+            {(c.estado === "RP_REGISTRADO" || c.estado === "SUSCRITO") && (esAdmin || puedeElaborar) && (
+              terceros.length === 0 ? (
+                <p className="mt-2 text-xs text-slate-400">Necesitas al menos un tercero (la aseguradora) para registrar una garantía.</p>
+              ) : (
+                <form action={garantiaAction} className="mt-2 grid gap-2 sm:grid-cols-2">
+                  <input type="hidden" name="contratoId" value={c.id} />
+                  <select name="tipo" required defaultValue="" className={INPUT}>
+                    <option value="" disabled>— Tipo de garantía —</option>
+                    {TIPOS_GARANTIA.map((t) => <option key={t} value={t}>{t.replaceAll("_", " ")}</option>)}
+                  </select>
+                  <select name="aseguradoraId" required defaultValue="" className={INPUT}>
+                    <option value="" disabled>— Aseguradora —</option>
+                    {terceros.map((t) => <option key={t.id} value={t.id}>{t.etiqueta}</option>)}
+                  </select>
+                  <input name="numeroPoliza" required placeholder="Número de póliza" className={INPUT} />
+                  <input name="valorAsegurado" type="number" min="0" step="0.01" required placeholder="Valor asegurado" className={INPUT} />
+                  <label className="text-xs text-slate-500">Vigencia desde<input name="vigenciaDesde" type="date" required className={INPUT} /></label>
+                  <label className="text-xs text-slate-500">Vigencia hasta<input name="vigenciaHasta" type="date" required className={INPUT} /></label>
+                  <button type="submit" disabled={garantiaPend} className={`${BTN_SEC} sm:col-span-2`}>{garantiaPend ? "Registrando…" : "Registrar garantía"}</button>
+                </form>
+              )
+            )}
+            <Mensaje state={garantiaState} />
+          </div>
+        )}
+
+        {(c.estado === "EN_EJECUCION" || c.estado === "SUSPENDIDO" || c.modificaciones.length > 0) && (
+          <div className="border-t border-slate-100 pt-3">
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Adiciones y prórrogas</div>
+            {c.modificaciones.length === 0 ? (
+              <p className="text-xs text-slate-400">Sin modificaciones registradas.</p>
+            ) : (
+              <ul className="space-y-1">
+                {c.modificaciones.map((m) => (
+                  <li key={m.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    Otrosí N.° {m.numero} · {m.tipo.replaceAll("_", " ")} · {m.fecha}
+                    {m.valorAdicion && <> · +${formatMoneda(m.valorAdicion)}</>}
+                    {m.diasProrroga && <> · +{m.diasProrroga} días</>}
+                    <div className="mt-0.5 text-slate-500">{m.justificacion}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {c.plazoVigente !== null && c.plazoVigente !== undefined && (
+              <p className="mt-1 text-xs text-slate-400">Plazo vigente: {c.plazoVigente} días.</p>
+            )}
+
+            {(c.estado === "EN_EJECUCION" || c.estado === "SUSPENDIDO") && (esAdmin || puedeAprobar) && (
+              <form action={modAction} className="mt-2 grid gap-2 sm:grid-cols-2">
+                <input type="hidden" name="contratoId" value={c.id} />
+                <select name="tipo" required value={tipoMod} onChange={(e) => setTipoMod(e.target.value)} className={`${INPUT} sm:col-span-2`}>
+                  <option value="ADICION">Adición (valor)</option>
+                  <option value="PRORROGA">Prórroga (plazo)</option>
+                  <option value="ADICION_Y_PRORROGA">Adición y prórroga</option>
+                </select>
+                {tipoMod !== "PRORROGA" && <input name="valorAdicion" type="number" min="0" step="0.01" placeholder="Valor de la adición" className={INPUT} />}
+                {tipoMod !== "ADICION" && <input name="diasProrroga" type="number" min="1" placeholder="Días de prórroga" className={INPUT} />}
+                <input name="fecha" type="date" required className={INPUT} />
+                <textarea name="justificacion" required placeholder="Justificación" rows={2} className={`${INPUT} sm:col-span-2`} />
+                <button type="submit" disabled={modPend} className={`${BTN_SEC} sm:col-span-2`}>{modPend ? "Registrando…" : "Registrar Otrosí"}</button>
+              </form>
+            )}
+            <Mensaje state={modState} />
+          </div>
+        )}
 
         {c.versiones.length > 0 && (
           <div>
